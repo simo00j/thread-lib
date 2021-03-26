@@ -1,0 +1,24 @@
+stages:
+  - test
+  - deploy
+
+# Run tests
+test:
+  stage: test
+  image: rikorose/gcc-cmake:latest
+  script:
+    - make check-tests
+  artifacts:
+    paths:
+      - /tmp/$USER-*
+
+# Send the changelog to the Telegram group
+telegram:
+  stage: deploy
+  image: registry.gitlab.com/clovis-ai/dotfiles:latest
+  needs: [ ]
+  script:
+    - git changelog --format telegram-html --incoming >changelog
+    - announce-telegram changelog "$CHAT_IDS"
+  only:
+    - master
