@@ -2,7 +2,8 @@
 thread_number ?= 4
 yield_number ?= 4
 
-all: ${thread_exe} ${pthread_exe}
+compile: cmake-build-debug/Makefile
+	$(MAKE) -s -C cmake-build-debug
 
 # *** CMake generation ***
 cmake=cmake-build-debug/.init
@@ -14,39 +15,40 @@ ${cmake}:
 cmake-build-debug/Makefile: ${cmake}
 	cmake . -B cmake-build-debug
 
-# *** Compilation and execution ***
+# *** Test battery ***
+.PRECIOUS: cmake-build-debug/test/battery/% /tmp/${USER}-% /tmp/${USER}-%-diff
 
-${thread_exe}: cmake-build-debug/Makefile
-	$(MAKE) -s -C cmake-build-debug test-thread
+cmake-build-debug/test/battery/%: cmake-build-debug/Makefile
+	$(MAKE) -s -C cmake-build-debug $(shell basename $@)
 
-${pthread_exe}: cmake-build-debug/Makefile
-	$(MAKE) -s -C cmake-build-debug test-pthread
+/tmp/${USER}-%: cmake-build-debug/test/battery/%
+	(./cmake-build-debug/test/battery/$(shell basename $<) ${thread_number} ${yield_number} || echo "TEST::CRASH" >>$@) | tee $@
 
-${thread_full}: ${thread_exe}
-	./cmake-build-debug/test/test-thread | tee ${thread_full}
+/tmp/${USER}-%-diff: /tmp/${USER}-%-pthread /tmp/${USER}-%-thread
+	diff $^ --color=always | grep "TEST::" | tee $@
 
-${pthread_full}: ${pthread_exe}
-	./cmake-build-debug/test/test-pthread | tee ${pthread_full}
+.PHONY: valgrind-%
+valgrind-%: cmake-build-debug/test/battery/%
+	valgrind --tool=memcheck --gen-suppressions=all --leak-check=full --leak-resolution=med --track-origins=yes ./cmake-build-debug/test/battery/$(shell basename $<) ${thread_number} ${yield_number}
 
-test-thread: clean-test ${thread_full}
-test-pthread: clean-test ${pthread_full}
+.PHONY: run-%
+run-%: /tmp/${USER}-%
+	@echo "Execution done." >/dev/null
 
-# *** Diff ***
+tests := $(patsubst %.c,%,$(wildcard test/battery/*.c))
+.PHONY: check-all
+check-all: $(patsubst test/battery/%,check-%,$(tests))
+	@echo "Checking all scripts done." >/dev/null
 
-${thread_clean}: ${thread_full}
-	<${thread_full} grep "TEST::" | sort >${thread_clean}
-
-${pthread_clean}: ${pthread_full}
-	<${pthread_full} grep "TEST::" | sort >${pthread_clean}
-
-check-tests: ${thread_clean} ${pthread_clean}
-	diff ${pthread_clean} ${thread_clean} --color=always
+.PHONY: check-%
+check-%: /tmp/${USER}-%-diff
+	@echo "Checking $@ done." >/dev/null
 
 # *** Cleaning up ***
 .PHONY: clean clean-test
 
-clean:
+clean: clean-test
 	rm -rf cmake-build-debug
 
 clean-test:
-	rm -f ${thread_full} ${pthread_full}
+	rm -f /tmp/${USER}-*-thread /tmp/${USER}-*-pthread /tmp/${USER}-*-diff
