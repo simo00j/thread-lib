@@ -1,9 +1,36 @@
 stages:
+  - docker
   - test
   - deploy
 
-# Run tests
-test:
+variables:
+  TEST_IMAGE: $CI_REGISTRY_IMAGE:$CI_PIPELINE_IID
+  RELEASE_IMAGE: $CI_REGISTRY_IMAGE:latest
+
+# Build the Docker image with CMake etc
+docker:
+  stage: docker
+  image: docker:19.03
+  services:
+    - docker:dind
+  before_script:
+    - echo -n $CI_JOB_TOKEN | docker login -u gitlab-ci-token --password-stdin $CI_REGISTRY
+  tags:
+    - docker
+  script:
+    - docker pull $RELEASE_IMAGE || true
+    - >
+      docker build
+      --pull
+      --build-arg VCS_REF=$CI_COMMIT_SHA
+      --build-arg VCS_URL=$CI_PROJECT_URL
+      --cache-from $RELEASE_IMAGE
+      --tag $TEST_IMAGE
+      -f $CI_PROJECT_DIR/build.Dockerfile
+      .
+    - docker push $TEST_IMAGE
+
+.make:
   stage: test
   image: rikorose/gcc-cmake:latest
   script:
@@ -20,5 +47,18 @@ telegram:
   script:
     - git changelog --format telegram-html --incoming >changelog
     - announce-telegram changelog "$CHAT_IDS"
+  only:
+    - master
+
+# Publish the container so it can be reused by future jobs
+docker-latest:
+  extends: docker
+  variables:
+    GIT_STRATEGY: none
+  stage: deploy
+  script:
+    - docker pull $TEST_IMAGE
+    - docker tag $TEST_IMAGE $RELEASE_IMAGE
+    - docker push $RELEASE_IMAGE
   only:
     - master
