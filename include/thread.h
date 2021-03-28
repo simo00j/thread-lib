@@ -1,5 +1,5 @@
-#ifndef __THREAD_H__
-#define __THREAD_H__
+#ifndef OS_S8_THREAD_H
+#define OS_S8_THREAD_H
 
 #ifndef USE_PTHREAD
 
@@ -81,4 +81,4 @@ int thread_mutex_unlock(thread_mutex_t *mutex);
 
 #endif /* USE_PTHREAD */
 
-#endif //__THREAD_H__
+#endif //OS_S8_THREAD_H
