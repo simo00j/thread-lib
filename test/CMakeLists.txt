@@ -1,13 +1,12 @@
 
 set(test-files
-    main.c
     thread-utils.c thread-utils.h
     test-utils.h
     )
 
-add_executable(test-thread ${test-files})
-target_link_libraries(test-thread thread)
+add_library(thread-test-utils SHARED ${test-files})
+target_link_libraries(thread-test-utils thread)
 
-add_executable(test-pthread ${test-files})
-target_link_libraries(test-pthread pthread)
-target_compile_options(test-pthread PRIVATE "-DUSE_PTHREAD")
+add_library(pthread-test-utils SHARED ${test-files})
+target_link_libraries(pthread-test-utils thread)
+target_compile_options(pthread-test-utils PRIVATE "-DUSE_PTHREAD")

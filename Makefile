@@ -1,10 +1,6 @@
 # *** Variables and default recipe ***
-thread_exe=cmake-build-debug/test/test-thread
-pthread_exe=cmake-build-debug/test/test-pthread
-thread_full=/tmp/${USER}-thread-full
-pthread_full=/tmp/${USER}-pthread-full
-thread_clean=/tmp/${USER}-thread
-pthread_clean=/tmp/${USER}-pthread
+thread_number ?= 4
+yield_number ?= 4
 
 all: ${thread_exe} ${pthread_exe}
 
