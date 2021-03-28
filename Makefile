@@ -44,11 +44,24 @@ check-all: $(patsubst test/battery/%,check-%,$(tests))
 check-%: /tmp/${USER}-%-diff
 	@echo "Checking $@ done." >/dev/null
 
+# *** Installation (required by the Forge) ***
+
+install/bin/.init:
+	mkdir -p install/bin
+	touch install/bin/.init
+
+install/bin/%: cmake-build-debug/test/battery/% install/bin/.init
+	cp $< $@
+
+.PHONY: install
+install: $(patsubst test/battery/%,install/bin/%-thread,$(tests))
+	@echo "Installation done."
+
 # *** Cleaning up ***
 .PHONY: clean clean-test
 
 clean: clean-test
-	rm -rf cmake-build-debug
+	rm -rf cmake-build-debug install
 
 clean-test:
 	rm -f /tmp/${USER}-*-thread /tmp/${USER}-*-pthread /tmp/${USER}-*-diff
