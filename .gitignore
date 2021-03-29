@@ -1,2 +1,5 @@
 # CLion
 cmake-build-debug/
+
+# Generated files
+/install/

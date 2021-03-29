@@ -1,47 +1,67 @@
+# *** Variables and default recipe ***
+thread_number ?= 4
+yield_number ?= 4
 
-all: check-tests
+compile: cmake-build-debug/Makefile
+	$(MAKE) -s -C cmake-build-debug
 
 # *** CMake generation ***
+cmake=cmake-build-debug/.init
 
-cmake-build-debug:
+${cmake}:
 	mkdir -p cmake-build-debug
+	touch cmake-build-debug/.init
 
-cmake-build-debug/Makefile: cmake-build-debug
+cmake-build-debug/Makefile: ${cmake}
 	cmake . -B cmake-build-debug
 
-# *** Compilation and execution ***
-.PHONY: compile-thread compile-pthread test-thread test-pthread check-tests
+# *** Test battery ***
+.PRECIOUS: cmake-build-debug/test/battery/% /tmp/${USER}-% /tmp/${USER}-%-diff
 
-thread_full=/tmp/${USER}-thread-full
-pthread_full=/tmp/${USER}-pthread-full
-thread_clean=/tmp/${USER}-thread
-pthread_clean=/tmp/${USER}-pthread
+cmake-build-debug/test/battery/%: cmake-build-debug/Makefile
+	$(MAKE) -s -C cmake-build-debug $(shell basename $@)
 
-compile-thread: cmake-build-debug/Makefile
-	$(MAKE) -s -C cmake-build-debug test-thread
+/tmp/${USER}-%: cmake-build-debug/test/battery/%
+	(./cmake-build-debug/test/battery/$(shell basename $<) ${thread_number} ${yield_number} || echo "TEST::CRASH" >>$@) | tee $@
 
-compile-pthread: cmake-build-debug/Makefile
-	$(MAKE) -s -C cmake-build-debug test-pthread
+/tmp/${USER}-%-diff: /tmp/${USER}-%-pthread /tmp/${USER}-%-thread
+	diff $^ --color=always | grep "TEST::" | tee $@
 
-test-thread: compile-thread
-	./cmake-build-debug/test/test-thread | tee ${thread_full}
+.PHONY: valgrind-%
+valgrind-%: cmake-build-debug/test/battery/%
+	valgrind --tool=memcheck --gen-suppressions=all --leak-check=full --leak-resolution=med --track-origins=yes ./cmake-build-debug/test/battery/$(shell basename $<) ${thread_number} ${yield_number}
 
-test-pthread: compile-pthread
-	./cmake-build-debug/test/test-pthread | tee ${pthread_full}
+.PHONY: run-%
+run-%: /tmp/${USER}-%
+	@echo "Execution done." >/dev/null
 
-# *** Diff ***
+tests := $(patsubst %.c,%,$(wildcard test/battery/*.c))
+.PHONY: check-all
+check-all: $(patsubst test/battery/%,check-%,$(tests))
+	@echo "Checking all scripts done." >/dev/null
 
-${thread_clean}: test-thread
-	<${thread_full} grep "TEST::" | sort >${thread_clean}
+.PHONY: check-%
+check-%: /tmp/${USER}-%-diff
+	@echo "Checking $@ done." >/dev/null
 
-${pthread_clean}: test-pthread
-	<${pthread_full} grep "TEST::" | sort >${pthread_clean}
+# *** Installation (required by the Forge) ***
 
-check-tests: ${thread_clean} ${pthread_clean}
-	@echo
-	diff ${pthread_clean} ${thread_clean} --color=always && echo "Success: no differences!"
+install/bin/.init:
+	mkdir -p install/bin
+	touch install/bin/.init
+
+install/bin/%: cmake-build-debug/test/battery/% install/bin/.init
+	cp $< $@
+
+.PHONY: install
+install: $(patsubst test/battery/%,install/bin/%-thread,$(tests))
+	@echo "Installation done."
 
 # *** Cleaning up ***
+.PHONY: clean clean-test
 
-clean:
-	rm -rf cmake-build-debug
+clean: clean-test
+	rm -rf cmake-build-debug install
+
+clean-test:
+	rm -f /tmp/${USER}-*-thread /tmp/${USER}-*-pthread /tmp/${USER}-*-diff

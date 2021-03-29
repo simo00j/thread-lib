@@ -1,16 +1,72 @@
 stages:
+  - docker
   - test
   - deploy
 
-# Run tests
-test:
-  stage: test
-  image: rikorose/gcc-cmake:latest
+variables:
+  TEST_IMAGE: $CI_REGISTRY_IMAGE:$CI_PIPELINE_IID
+  RELEASE_IMAGE: $CI_REGISTRY_IMAGE:latest
+
+# Build the Docker image with CMake etc
+docker:
+  stage: docker
+  image: docker:19.03
+  services:
+    - docker:dind
+  before_script:
+    - echo -n $CI_JOB_TOKEN | docker login -u gitlab-ci-token --password-stdin $CI_REGISTRY
+  tags:
+    - docker
   script:
-    - make check-tests
+    - docker pull $RELEASE_IMAGE || true
+    - >
+      docker build
+      --pull
+      --build-arg VCS_REF=$CI_COMMIT_SHA
+      --build-arg VCS_URL=$CI_PROJECT_URL
+      --cache-from $RELEASE_IMAGE
+      --tag $TEST_IMAGE
+      -f $CI_PROJECT_DIR/build.Dockerfile
+      .
+    - docker push $TEST_IMAGE
+
+.make:
+  stage: test
+  image: $TEST_IMAGE
   artifacts:
     paths:
       - /tmp/$USER-*
+
+# Generate the test binaries
+install:
+  extends: .make
+  script:
+    - make install
+  artifacts:
+    paths:
+      - install/bin/
+
+# Run thread tests
+test-thread:
+  extends: .make
+  parallel:
+    matrix:
+      - TEST: [ 01-main, 02-switch, 11-join, 12-join-main, 21-create-many, 22-create-many-recursive, 23-create-many-once, 31-switch-many, 32-switch-many-join, 33-switch-many-cascade, 51-fibonacci ]
+  script:
+    - make valgrind-$TEST-thread
+    - make check-$TEST
+  allow_failure: true
+
+# Run thread tests
+test-mutex:
+  extends: .make
+  parallel:
+    matrix:
+      - TEST: [ 61-mutex, 62-mutex ]
+  script:
+    - make valgrind-$TEST-thread
+    - make check-$TEST
+  allow_failure: true
 
 # Send the changelog to the Telegram group
 telegram:
@@ -20,5 +76,18 @@ telegram:
   script:
     - git changelog --format telegram-html --incoming >changelog
     - announce-telegram changelog "$CHAT_IDS"
+  only:
+    - master
+
+# Publish the container so it can be reused by future jobs
+docker-latest:
+  extends: docker
+  variables:
+    GIT_STRATEGY: none
+  stage: deploy
+  script:
+    - docker pull $TEST_IMAGE
+    - docker tag $TEST_IMAGE $RELEASE_IMAGE
+    - docker push $RELEASE_IMAGE
   only:
     - master
