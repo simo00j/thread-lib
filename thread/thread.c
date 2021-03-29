@@ -1,10 +1,47 @@
+#include <malloc.h>
+#include <ucontext.h>
+#include <sys/queue.h>
 #include "thread.h"
 #include "debug.h"
 
-extern thread_t thread_self(void) {
-	error("Trying to access the current thread: %s", "not implemented")
+//region Structure declaration
 
-	return 0; //TODO: implement
+struct thread {
+	ucontext_t context;
+	void *return_value;
+	TAILQ_ENTRY(thread) entries;
+};
+
+TAILQ_HEAD(thread_queue, thread);
+struct thread_queue threads;
+
+__attribute__((unused)) __attribute__((constructor))
+static void initialize_threads() {
+	TAILQ_INIT(&threads);
+
+	// Create the main thread (so it can call thread_self and thread_yield)
+	struct thread *main_thread = malloc(sizeof *main_thread);
+	getcontext(&main_thread->context);
+	main_thread->return_value = NULL;
+	TAILQ_INSERT_HEAD(&threads, main_thread, entries);
+}
+
+__attribute__((unused)) __attribute__((destructor))
+static void free_threads() {
+	struct thread *current = TAILQ_FIRST(&threads);
+	struct thread *next;
+
+	while (current != NULL) {
+		next = TAILQ_NEXT(current, entries);
+		free(current);
+		current = next;
+	}
+}
+
+//endregion
+
+extern thread_t thread_self(void) {
+	return TAILQ_FIRST(&threads);
 }
 
 extern int thread_create(thread_t *new_thread, void *(*func)(void *), void *func_arg) {
@@ -14,9 +51,12 @@ extern int thread_create(thread_t *new_thread, void *(*func)(void *), void *func
 }
 
 extern int thread_yield(void) {
-	error("Trying to yield: %s", "not implemented")
-
-	return -1; //TODO: implement
+	if (TAILQ_FIRST(&threads) == TAILQ_LAST(&threads, thread_queue)) {
+		// No thread to yield to: there is only one thread
+		return 0;
+	} else {
+		return -1; //TODO: implement
+	}
 }
 
 extern int thread_join(thread_t thread, void **return_value) {
