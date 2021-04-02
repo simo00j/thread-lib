@@ -14,6 +14,7 @@ foreach (file ${files})
 	target_link_libraries(${thread_impl} thread)
 	target_link_libraries(${thread_impl} thread-test-utils)
 	target_include_directories(${thread_impl} PUBLIC ..)
+	add_test(${thread_impl} ${thread_impl} 4 4)
 
 	# Tests with pthread
 	add_executable(${pthread_impl} ${file})
@@ -21,5 +22,6 @@ foreach (file ${files})
 	target_link_libraries(${pthread_impl} pthread-test-utils)
 	target_compile_options(${pthread_impl} PRIVATE "-DUSE_PTHREAD")
 	target_include_directories(${pthread_impl} PUBLIC ..)
+	add_test(${pthread_impl} ${pthread_impl} 4 4)
 
 endforeach ()
