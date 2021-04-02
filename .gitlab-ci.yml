@@ -43,7 +43,7 @@ build:
   extends: .make
   script:
     - mkdir cmake-build-debug
-    - cmake -B cmake-build-debug
+    - cmake -B cmake-build-debug -DCMAKE_BUILD_TYPE=Debug
     - make -s -C cmake-build-debug -j install
   artifacts:
     paths:
