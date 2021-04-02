@@ -50,6 +50,11 @@ static void free_threads() {
 
 //endregion
 
+static void free_thread(struct thread *thread) {
+	free(&thread->context);
+	free(thread);
+}
+
 extern thread_t thread_self(void) {
 	return TAILQ_FIRST(&threads);
 }
@@ -77,9 +82,18 @@ extern int thread_yield(void) {
 }
 
 extern int thread_join(thread_t thread, void **return_value) {
-	error("Trying to join a thread: %s", "not implemented")
+	while (1) {
+		struct thread *current_zombie;
+		TAILQ_FOREACH(current_zombie, &zombies, entries) {
+			if (current_zombie == thread) {
+				*return_value = current_zombie->return_value;
+				free_thread(current_zombie);
+				return 0;
+			}
+		}
 
-	return -1; //TODO: implement
+		thread_yield();
+	}
 }
 
 extern void thread_exit(void *return_value) {
