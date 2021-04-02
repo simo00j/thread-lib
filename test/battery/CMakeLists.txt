@@ -6,7 +6,7 @@ foreach (file ${files})
 	string(REGEX REPLACE "\\.[^.]*$" "" file_no_ext ${file})
 	get_filename_component(file_cleaned ${file} NAME_WE)
 
-	set(thread_impl ${file_cleaned}-thread)
+	set(thread_impl ${file_cleaned})
 	set(pthread_impl ${file_cleaned}-pthread)
 
 	# Tests with our thread
