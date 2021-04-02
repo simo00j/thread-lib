@@ -14,10 +14,12 @@ struct thread {
 
 TAILQ_HEAD(thread_queue, thread);
 struct thread_queue threads;
+struct thread_queue zombies;
 
 __attribute__((unused)) __attribute__((constructor))
 static void initialize_threads() {
 	TAILQ_INIT(&threads);
+	TAILQ_INIT(&zombies);
 
 	// Create the main thread (so it can call thread_self and thread_yield)
 	struct thread *main_thread = malloc(sizeof *main_thread);
@@ -30,6 +32,14 @@ __attribute__((unused)) __attribute__((destructor))
 static void free_threads() {
 	struct thread *current = TAILQ_FIRST(&threads);
 	struct thread *next;
+
+	while (current != NULL) {
+		next = TAILQ_NEXT(current, entries);
+		free(current);
+		current = next;
+	}
+
+	current = TAILQ_FIRST(&zombies);
 
 	while (current != NULL) {
 		next = TAILQ_NEXT(current, entries);
@@ -73,7 +83,10 @@ extern int thread_join(thread_t thread, void **return_value) {
 }
 
 extern void thread_exit(void *return_value) {
-	error("Trying to exit from a thread: %s", "not implemented")
+	struct thread *current = TAILQ_FIRST(&threads);
+	current->return_value = return_value;
+	TAILQ_REMOVE(&threads, current, entries);
+	TAILQ_INSERT_TAIL(&zombies, current, entries);
 
-	//TODO: implement
+	setcontext(&TAILQ_FIRST(&threads)->context);
 }
