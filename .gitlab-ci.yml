@@ -47,7 +47,7 @@ build:
     - make -s -C cmake-build-debug -j install
   artifacts:
     paths:
-      - install/bin/
+      - install/
 
 # Run thread tests
 test-thread:
