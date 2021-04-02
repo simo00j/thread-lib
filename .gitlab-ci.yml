@@ -59,7 +59,7 @@ test-thread:
     matrix:
       - TEST: [ 01-main, 02-switch, 11-join, 12-join-main, 21-create-many, 22-create-many-recursive, 23-create-many-once, 31-switch-many, 32-switch-many-join, 33-switch-many-cascade, 51-fibonacci ]
   script:
-    - valgrind install/bin/$TEST
+    - LD_LIBRARY_PATH="$LD_LIBRARY_PATH:install/lib" valgrind install/bin/$TEST --leak-check=full --show-reachable=yes --track-origins=yes
   allow_failure: true
 
 # Run thread tests
@@ -72,7 +72,7 @@ test-mutex:
     matrix:
       - TEST: [ 61-mutex, 62-mutex ]
   script:
-    - valgrind install/bin/$TEST
+    - LD_LIBRARY_PATH="$LD_LIBRARY_PATH:install/lib" valgrind install/bin/$TEST --leak-check=full --show-reachable=yes --track-origins=yes
   allow_failure: true
 
 # Send the changelog to the Telegram group
