@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
-#include <stdlib.h>
 #include <sys/time.h>
 #include "thread.h"
 
@@ -42,6 +41,23 @@ static void *fibo(void *_value) {
 	return (void *) ((unsigned long) res + (unsigned long) res2);
 }
 
+unsigned long fibo_checker(unsigned long n) {
+	unsigned long a = 1;
+	unsigned long b = 1;
+	unsigned long c, i;
+
+	if (n < 2) {
+		return 1;
+	}
+
+	for (i = 2; i < n; i++) {
+		c = a + b;
+		a = b;
+		b = c;
+	}
+	return c;
+}
+
 int main(int argc, char *argv[]) {
 	unsigned long value, res;
 	struct timeval tv1, tv2;
@@ -58,7 +74,11 @@ int main(int argc, char *argv[]) {
 	gettimeofday(&tv2, NULL);
 	s = (tv2.tv_sec - tv1.tv_sec) + (tv2.tv_usec - tv1.tv_usec) * 1e-6;
 
-	printf("fibo de %ld = %ld en %e s\n", value, res, s);
-
-	return 0;
+	if (res != fibo_checker(value)) {
+		printf("fibo de %lu != %lu (FAILED)\n", value, fibo_checker(res));
+		return EXIT_FAILURE;
+	} else {
+		printf("fibo de %lu = %lu en %e s\n", value, res, s);
+		return EXIT_SUCCESS;
+	}
 }
