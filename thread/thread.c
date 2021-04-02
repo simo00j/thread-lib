@@ -23,7 +23,6 @@ static void initialize_threads() {
 
 	// Create the main thread (so it can call thread_self and thread_yield)
 	struct thread *main_thread = malloc(sizeof *main_thread);
-	getcontext(&main_thread->context);
 	main_thread->return_value = NULL;
 	TAILQ_INSERT_HEAD(&threads, main_thread, entries);
 }
@@ -60,9 +59,20 @@ extern thread_t thread_self(void) {
 }
 
 extern int thread_create(thread_t *new_thread, void *(*func)(void *), void *func_arg) {
-	error("Trying to create a thread: %s", "not implemented");
+	ucontext_t *new_context = malloc(sizeof *new_context);
+	getcontext(new_context); // Initialize the context with default values
 
-	return -1; //TODO: implement
+	new_context->uc_stack.ss_size = 64 * 1024; // TODO: why?
+	new_context->uc_stack.ss_sp = malloc(new_context->uc_stack.ss_size);
+	new_context->uc_link = NULL;
+	makecontext(new_context, (void (*)(void)) func, 1, func_arg);
+
+	struct thread *new = malloc(sizeof *new);
+	new->context = *new_context;
+	//*new_thread = new;
+
+	TAILQ_INSERT_TAIL(&threads, new, entries);
+	return thread_yield();
 }
 
 extern int thread_yield(void) {
