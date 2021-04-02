@@ -55,7 +55,14 @@ extern int thread_yield(void) {
 		// No thread to yield to: there is only one thread
 		return 0;
 	} else {
-		return -1; //TODO: implement
+		struct thread *current = TAILQ_FIRST(&threads);
+		TAILQ_REMOVE(&threads, current, entries);
+		TAILQ_INSERT_TAIL(&threads, current, entries);
+
+		struct thread *next = TAILQ_FIRST(&threads);
+
+		swapcontext(&current->context, &next->context);
+		return 0;
 	}
 }
 
