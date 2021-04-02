@@ -1,5 +1,6 @@
 stages:
   - docker
+  - build
   - test
   - deploy
 
@@ -31,41 +32,47 @@ docker:
     - docker push $TEST_IMAGE
 
 .make:
-  stage: test
   image: $TEST_IMAGE
   artifacts:
     paths:
       - /tmp/$USER-*
 
 # Generate the test binaries
-install:
+build:
+  stage: build
   extends: .make
   script:
-    - make install
+    - mkdir cmake-build-debug
+    - cmake -B cmake-build-debug
+    - make -s -C cmake-build-debug -j install
   artifacts:
     paths:
       - install/bin/
 
 # Run thread tests
 test-thread:
+  stage: test
   extends: .make
+  dependencies:
+    - build
   parallel:
     matrix:
       - TEST: [ 01-main, 02-switch, 11-join, 12-join-main, 21-create-many, 22-create-many-recursive, 23-create-many-once, 31-switch-many, 32-switch-many-join, 33-switch-many-cascade, 51-fibonacci ]
   script:
-    - make valgrind-$TEST-thread
-    - make check-$TEST
+    - valgrind install/bin/$TEST
   allow_failure: true
 
 # Run thread tests
 test-mutex:
+  stage: test
   extends: .make
+  dependencies:
+    - build
   parallel:
     matrix:
       - TEST: [ 61-mutex, 62-mutex ]
   script:
-    - make valgrind-$TEST-thread
-    - make check-$TEST
+    - valgrind install/bin/$TEST
   allow_failure: true
 
 # Send the changelog to the Telegram group
