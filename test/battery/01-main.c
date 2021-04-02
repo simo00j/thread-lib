@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <assert.h>
-#include <test-utils.h>
 #include "thread.h"
 
 /* test du thread_self et yield du main seul.
