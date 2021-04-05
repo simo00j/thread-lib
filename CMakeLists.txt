@@ -11,6 +11,8 @@ add_compile_options(-Wall -Werror -pedantic)
 add_compile_options(-Wno-error=unused-but-set-variable)
 # Necessary because the tests use pointer arithmetics when compiled with pthread
 add_compile_options(-Wno-error=pointer-arith)
+# Necessary because the tests (eg. fibonacci) use variables that are initialized in loops, which cannot be checked for safety by the compiler
+add_compile_options(-Wno-error=maybe-uninitialized)
 
 include_directories(include)
 add_subdirectory(thread)
