@@ -79,16 +79,14 @@ extern thread_t thread_self(void) {
 }
 
 extern int thread_create(thread_t *new_thread, void *(*func)(void *), void *func_arg) {
-	ucontext_t *new_context = malloc(sizeof *new_context);
-	getcontext(new_context); // Initialize the context with default values
-
-	new_context->uc_stack.ss_size = 64 * 1024; // TODO: why?
-	new_context->uc_stack.ss_sp = malloc(new_context->uc_stack.ss_size);
-	new_context->uc_link = NULL;
-	makecontext(new_context, (void (*)(void)) func, 1, func_arg);
-
 	struct thread *new = malloc(sizeof *new);
-	new->context = *new_context;
+	getcontext(&new->context);
+
+	new->context.uc_stack.ss_size = 64 * 1024; // TODO: why?
+	new->context.uc_stack.ss_sp = malloc(new->context.uc_stack.ss_size);
+	new->context.uc_link = NULL;
+	makecontext(&new->context, (void (*)(void)) func, 1, func_arg);
+
 	new->return_value = NULL;
 #ifdef USE_DEBUG
 	new->id = next_thread_id++;
