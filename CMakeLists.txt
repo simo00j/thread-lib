@@ -7,6 +7,9 @@ enable_testing()
 
 add_compile_options(-Wall -Werror -pedantic)
 
+# Necessary because of the use of 'assert' in tests, which are not present in 'release'
+add_compile_options(-Wno-error=unused-but-set-variable)
+
 include_directories(include)
 add_subdirectory(thread)
 add_subdirectory(test)
