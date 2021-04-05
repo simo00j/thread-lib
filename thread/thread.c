@@ -1,11 +1,11 @@
-#include <malloc.h>
+#include <stdio.h>
 #include <ucontext.h>
 #include <sys/queue.h>
 #include <stdlib.h>
 #include "thread.h"
 #include "debug.h"
 
-#define STACK_SIZE 64 * 1024
+#define STACK_SIZE (64 * 1024)
 
 #ifdef USE_DEBUG
 
