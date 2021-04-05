@@ -49,6 +49,17 @@ build:
     paths:
       - install/
 
+build release:
+  stage: build
+  extends: .make
+  script:
+    - mkdir cmake-build-release
+    - cmake -B cmake-build-release -DCMAKE_BUILD_TYPE=Release
+    - make -s -C cmake-build-release -j install
+  artifacts:
+    paths:
+      - install/
+
 # Run thread tests
 test-thread:
   stage: test
