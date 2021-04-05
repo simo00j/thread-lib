@@ -91,7 +91,7 @@ extern int thread_create(thread_t *new_thread, void *(*func)(void *), void *func
 #ifdef USE_DEBUG
 	new->id = next_thread_id++;
 #endif
-	//*new_thread = new;
+	*new_thread = new;
 	debug("%hd was just created.", new->id)
 
 	TAILQ_INSERT_TAIL(&threads, new, entries);
