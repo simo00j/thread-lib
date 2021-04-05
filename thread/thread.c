@@ -5,6 +5,15 @@
 #include "thread.h"
 #include "debug.h"
 
+#define STACK_SIZE 64 * 1024
+
+#ifdef USE_DEBUG
+
+#include <valgrind/valgrind.h>
+
+static short next_thread_id = 0;
+#endif
+
 //region Structure declaration
 
 struct thread {
@@ -12,13 +21,10 @@ struct thread {
 	void *return_value;
 #ifdef USE_DEBUG
 	short id;
+	unsigned int valgrind_stack;
 #endif
 	TAILQ_ENTRY(thread) entries;
 };
-
-#ifdef USE_DEBUG
-static short next_thread_id = 0;
-#endif
 
 TAILQ_HEAD(thread_queue, thread);
 struct thread_queue threads;
@@ -26,6 +32,12 @@ struct thread_queue zombies;
 
 static void free_thread(struct thread *thread) {
 	debug("%hd is being freed…", thread->id)
+
+#ifdef USE_DEBUG
+	if (thread->valgrind_stack != -1)
+		VALGRIND_STACK_DEREGISTER(thread->valgrind_stack);
+#endif
+
 	free(thread);
 }
 
@@ -39,6 +51,7 @@ static void initialize_threads() {
 	main_thread->return_value = NULL;
 #ifdef USE_DEBUG
 	main_thread->id = next_thread_id++;
+	main_thread->valgrind_stack = -1;
 #endif
 
 	TAILQ_INSERT_HEAD(&threads, main_thread, entries);
@@ -82,7 +95,7 @@ extern int thread_create(thread_t *new_thread, void *(*func)(void *), void *func
 	struct thread *new = malloc(sizeof *new);
 	getcontext(&new->context);
 
-	new->context.uc_stack.ss_size = 64 * 1024; // TODO: why?
+	new->context.uc_stack.ss_size = STACK_SIZE;
 	new->context.uc_stack.ss_sp = malloc(new->context.uc_stack.ss_size);
 	new->context.uc_link = NULL;
 	makecontext(&new->context, (void (*)(void)) func, 1, func_arg);
@@ -90,6 +103,9 @@ extern int thread_create(thread_t *new_thread, void *(*func)(void *), void *func
 	new->return_value = NULL;
 #ifdef USE_DEBUG
 	new->id = next_thread_id++;
+	new->valgrind_stack = VALGRIND_STACK_REGISTER(new->context.uc_stack.ss_sp,
+	                                              new->context.uc_stack.ss_sp +
+	                                              new->context.uc_stack.ss_size);
 #endif
 	*new_thread = new;
 	debug("%hd was just created.", new->id)
