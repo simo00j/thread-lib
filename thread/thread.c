@@ -1,6 +1,7 @@
 #include <malloc.h>
 #include <ucontext.h>
 #include <sys/queue.h>
+#include <stdlib.h>
 #include "thread.h"
 #include "debug.h"
 
@@ -78,8 +79,13 @@ extern int thread_create(thread_t *new_thread, void *(*func)(void *), void *func
 	return thread_yield();
 }
 
+static int thread_is_alone(void) {
+	return TAILQ_FIRST(&threads) == TAILQ_LAST(&threads, thread_queue);
+}
+
 extern int thread_yield(void) {
-	if (TAILQ_FIRST(&threads) == TAILQ_LAST(&threads, thread_queue)) {
+	if (thread_is_alone()) {
+		debug("%p: No thread to yield to, noop.", (void *) TAILQ_FIRST(&threads))
 		// No thread to yield to: there is only one thread
 		return 0;
 	} else {
@@ -108,6 +114,11 @@ extern int thread_join(thread_t thread, void **return_value) {
 			}
 		}
 
+		if (thread_is_alone()) {
+			error("%p: Trying to join %p, yet there is no thread to yield to. This should not happen.",
+			      thread_self(), thread)
+			exit(1);
+		}
 		thread_yield();
 	}
 }
