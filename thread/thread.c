@@ -134,6 +134,7 @@ extern int thread_join(thread_t thread, void **return_value) {
 			if (current_zombie == target) {
 				if (return_value != NULL) // The client wants the return value
 					*return_value = current_zombie->return_value;
+				TAILQ_REMOVE(&zombies, current_zombie, entries);
 				free_thread(current_zombie);
 				return 0;
 			}
