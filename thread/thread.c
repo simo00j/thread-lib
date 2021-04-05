@@ -16,6 +16,11 @@ TAILQ_HEAD(thread_queue, thread);
 struct thread_queue threads;
 struct thread_queue zombies;
 
+static void free_thread(struct thread *thread) {
+	debug("%p is being freed…", (void *) thread)
+	free(thread);
+}
+
 __attribute__((unused)) __attribute__((constructor))
 static void initialize_threads() {
 	TAILQ_INIT(&threads);
@@ -35,7 +40,7 @@ static void free_threads() {
 
 	while (current != NULL) {
 		next = TAILQ_NEXT(current, entries);
-		free(current);
+		free_thread(current);
 		current = next;
 	}
 
@@ -43,17 +48,12 @@ static void free_threads() {
 
 	while (current != NULL) {
 		next = TAILQ_NEXT(current, entries);
-		free(current);
+		free_thread(current);
 		current = next;
 	}
 }
 
 //endregion
-
-static void free_thread(struct thread *thread) {
-	free(&thread->context);
-	free(thread);
-}
 
 extern thread_t thread_self(void) {
 	return TAILQ_FIRST(&threads);
