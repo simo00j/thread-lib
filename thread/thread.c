@@ -25,6 +25,7 @@ static void initialize_threads() {
 	struct thread *main_thread = malloc(sizeof *main_thread);
 	main_thread->return_value = NULL;
 	TAILQ_INSERT_HEAD(&threads, main_thread, entries);
+	debug("%p is the main thread.", (void *) main_thread)
 }
 
 __attribute__((unused)) __attribute__((destructor))
@@ -59,6 +60,8 @@ extern thread_t thread_self(void) {
 }
 
 extern int thread_create(thread_t *new_thread, void *(*func)(void *), void *func_arg) {
+	debug("%p is being created…", *new_thread)
+
 	ucontext_t *new_context = malloc(sizeof *new_context);
 	getcontext(new_context); // Initialize the context with default values
 
@@ -86,12 +89,15 @@ extern int thread_yield(void) {
 
 		struct thread *next = TAILQ_FIRST(&threads);
 
+		debug("%p: yielding to %p…", (void *) current, (void *) next)
 		swapcontext(&current->context, &next->context);
 		return 0;
 	}
 }
 
 extern int thread_join(thread_t thread, void **return_value) {
+	debug("%p: Will join %p", thread_self(), thread)
+
 	while (1) {
 		struct thread *current_zombie;
 		TAILQ_FOREACH(current_zombie, &zombies, entries) {
@@ -111,6 +117,7 @@ extern void thread_exit(void *return_value) {
 	current->return_value = return_value;
 	TAILQ_REMOVE(&threads, current, entries);
 	TAILQ_INSERT_TAIL(&zombies, current, entries);
+	debug("%p has died with return value %p", (void *) current, return_value)
 
 	setcontext(&TAILQ_FIRST(&threads)->context);
 }
