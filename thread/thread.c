@@ -129,10 +129,11 @@ extern int thread_join(thread_t thread, void **return_value) {
 	while (1) {
 		struct thread *current_zombie;
 		TAILQ_FOREACH(current_zombie, &zombies, entries) {
-			debug("%hd: Considering whether I should free %hd…", thread_self_safe()->id,
+			debug("%hd: Found zombie %hd…", thread_self_safe()->id,
 			      current_zombie->id)
 			if (current_zombie == target) {
-				*return_value = current_zombie->return_value;
+				if (return_value != NULL) // The client wants the return value
+					*return_value = current_zombie->return_value;
 				free_thread(current_zombie);
 				return 0;
 			}
