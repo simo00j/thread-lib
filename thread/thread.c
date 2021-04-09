@@ -38,6 +38,7 @@ static void free_thread(struct thread *thread) {
 		VALGRIND_STACK_DEREGISTER(thread->valgrind_stack);
 #endif
 
+	free(thread->context.uc_stack.ss_sp);
 	free(thread);
 }
 
