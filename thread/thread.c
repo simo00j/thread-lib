@@ -92,6 +92,10 @@ extern thread_t thread_self(void) {
 	return thread_self_safe();
 }
 
+void func_and_exit(void *(*func)(void *), void *func_arg) {
+	thread_exit(func(func_arg));
+}
+
 extern int thread_create(thread_t *new_thread, void *(*func)(void *), void *func_arg) {
 	struct thread *new = malloc(sizeof *new);
 	getcontext(&new->context);
@@ -99,7 +103,7 @@ extern int thread_create(thread_t *new_thread, void *(*func)(void *), void *func
 	new->context.uc_stack.ss_size = STACK_SIZE;
 	new->context.uc_stack.ss_sp = malloc(new->context.uc_stack.ss_size);
 	new->context.uc_link = NULL;
-	makecontext(&new->context, (void (*)(void)) func, 1, func_arg);
+	makecontext(&new->context, (void (*)(void)) func_and_exit, 2, func, func_arg);
 
 	new->return_value = NULL;
 #ifdef USE_DEBUG
