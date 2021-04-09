@@ -176,5 +176,10 @@ extern void thread_exit(void *return_value) {
 	debug("%hd has died with return value %p",
 	      current->id, return_value)
 
+	if (TAILQ_EMPTY(&threads)) {
+		info("all thread dead, %s", "terminated");
+		exit(EXIT_SUCCESS);
+	}
+	debug("The next thread to execute will be: %hd", TAILQ_FIRST(&threads)->id);
 	setcontext(&TAILQ_FIRST(&threads)->context);
 }
