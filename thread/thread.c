@@ -173,13 +173,15 @@ extern void thread_exit(void *return_value) {
 	current->return_value = return_value;
 	TAILQ_REMOVE(&threads, current, entries);
 	TAILQ_INSERT_TAIL(&zombies, current, entries);
-	debug("%hd has died with return value %p",
-	      current->id, return_value)
+	info("%hd has died with return value %p.",
+	     current->id, return_value)
 
 	if (TAILQ_EMPTY(&threads)) {
-		info("all thread dead, %s", "terminated");
+		info("All threads are dead: %s", "now terminating")
 		exit(EXIT_SUCCESS);
 	}
-	debug("The next thread to execute will be: %hd", TAILQ_FIRST(&threads)->id);
-	setcontext(&TAILQ_FIRST(&threads)->context);
+
+	struct thread *next = TAILQ_FIRST(&threads);
+	debug("The execution will now move to %hd.", next->id)
+	setcontext(&next->context);
 }
