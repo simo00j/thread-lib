@@ -136,8 +136,7 @@ extern int thread_yield(void) {
 		struct thread *next = TAILQ_FIRST(&threads);
 
 		debug("yield: %hd -> %hd", current->id, next->id)
-		swapcontext(&current->context, &next->context);
-		return 0;
+		return swapcontext(&current->context, &next->context);
 	}
 }
 
