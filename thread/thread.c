@@ -113,9 +113,10 @@ extern int thread_create(thread_t *new_thread, void *(*func)(void *), void *func
 	                                              new->context.uc_stack.ss_size);
 #endif
 	*new_thread = new;
-	debug("%hd was just created.", new->id)
+	info("%hd was just created.", new->id)
 
 	TAILQ_INSERT_TAIL(&threads, new, entries);
+
 	return thread_yield();
 }
 
@@ -142,7 +143,7 @@ extern int thread_yield(void) {
 
 extern int thread_join(thread_t thread, void **return_value) {
 	struct thread *target = thread;
-	debug("%hd: Will join %hd", thread_self_safe()->id, target->id)
+	info("%hd: Will join %hd", thread_self_safe()->id, target->id)
 
 	while (1) {
 		struct thread *current_zombie;
