@@ -1,3 +1,5 @@
-FROM alpine:latest
+FROM debian:buster
 
-RUN apk add --no-cache valgrind gcc cmake make musl-dev
+RUN apt-get update \
+ && apt-get install -y valgrind gcc cmake make \
+ && apt-get clean
