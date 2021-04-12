@@ -101,7 +101,7 @@ void func_and_exit(void *(*func)(void *), void *func_arg) {
 extern int thread_create(thread_t *new_thread, void *(*func)(void *), void *func_arg) {
 	struct thread *new = malloc(sizeof *new);
 	if(new == NULL){
-		error("New thread allocation failed: %hd", new_thread);
+		error("New thread allocation %s", "failed");
 		exit(1);
 	}
 
