@@ -19,6 +19,7 @@ static short next_thread_id = 0;
 struct thread {
 	ucontext_t context;
 	void *return_value;
+	void *stack;
 #ifdef USE_DEBUG
 	short id;
 	unsigned int valgrind_stack;
@@ -38,7 +39,7 @@ static void free_thread(struct thread *thread) {
 		VALGRIND_STACK_DEREGISTER(thread->valgrind_stack);
 #endif
 
-	free(thread->context.uc_stack.ss_sp);
+	free(thread->stack);
 	free(thread);
 }
 
@@ -50,6 +51,7 @@ static void initialize_threads() {
 	// Create the main thread (so it can call thread_self and thread_yield)
 	struct thread *main_thread = malloc(sizeof *main_thread);
 	main_thread->return_value = NULL;
+	main_thread->stack = NULL;
 #ifdef USE_DEBUG
 	main_thread->id = next_thread_id++;
 	main_thread->valgrind_stack = -1;
@@ -98,10 +100,24 @@ void func_and_exit(void *(*func)(void *), void *func_arg) {
 
 extern int thread_create(thread_t *new_thread, void *(*func)(void *), void *func_arg) {
 	struct thread *new = malloc(sizeof *new);
-	getcontext(&new->context);
+	if(new == NULL){
+		error("New thread allocation failed: %hd", new_thread);
+		exit(1);
+	}
+
+	if(getcontext(&new->context) == -1){
+		error("Failed to get context: %hd", new->id);
+		exit(1);
+	}
+
+	new->stack = malloc(STACK_SIZE);
+	if(new->stack == NULL){
+		error("New thread stack allocation failed: %hd", new->id);
+		exit(1);
+	}
 
 	new->context.uc_stack.ss_size = STACK_SIZE;
-	new->context.uc_stack.ss_sp = malloc(new->context.uc_stack.ss_size);
+	new->context.uc_stack.ss_sp = new->stack;
 	new->context.uc_link = NULL;
 	makecontext(&new->context, (void (*)(void)) func_and_exit, 2, func, func_arg);
 
