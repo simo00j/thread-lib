@@ -26,6 +26,7 @@ The available targets are:
 - `all` to compile everything
 - `install` to add the tests to `install/bin`
 - `test` to execute all tests (with both our implementation and GNU's `pthread`)
+- `graphs` to generate a graph of performance for a specific test (to select the test, use the environment variables `test_id=<integer>` and `test_runs=<integer>`)
 
 ##### Code conventions
 
