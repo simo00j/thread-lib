@@ -71,7 +71,6 @@ test-thread:
       - TEST: [ 01-main, 02-switch, 11-join, 12-join-main, 21-create-many, 22-create-many-recursive, 23-create-many-once, 31-switch-many, 32-switch-many-join, 33-switch-many-cascade, 51-fibonacci ]
   script:
     - LD_LIBRARY_PATH="$LD_LIBRARY_PATH:install/lib" valgrind install/bin/$TEST --leak-check=full --show-reachable=yes --track-origins=yes
-  allow_failure: true
 
 # Run thread tests
 test-mutex:
