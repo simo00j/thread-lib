@@ -18,3 +18,15 @@ include_directories(include)
 add_subdirectory(thread)
 add_subdirectory(test)
 add_subdirectory(test/battery)
+
+#region Graphs
+
+add_custom_command(OUTPUT venv/bin/activate
+                   COMMAND python3 -m venv venv
+                   COMMAND ${CMAKE_CURRENT_BINARY_DIR}/venv/bin/pip install -r ${PROJECT_SOURCE_DIR}/graphs-requirements.txt)
+
+add_custom_target(graphs
+                  COMMAND ${CMAKE_CURRENT_BINARY_DIR}/venv/bin/python ${PROJECT_SOURCE_DIR}/graphs.py
+                  DEPENDS venv/bin/activate)
+
+#endregion
