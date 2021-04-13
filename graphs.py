@@ -26,7 +26,7 @@ dir_thread_path = args[3] + "/"
 dir_pthread_path = dir_thread_path
 
 
-def run_test(test_id: int, test_args: string) -> Tuple[float, float]:
+def run_test(test_args: string) -> Tuple[float, float]:
 	thread_time = 0
 	pthread_time = 0
 	for j in range(iterations_number):
@@ -49,7 +49,7 @@ def graph_thread():
 	pthread_times = []
 	for i in range(x_val):
 		test_args = " " + str(i) + " 10"
-		thread, pthread = run_test(test_number, test_args)
+		thread, pthread = run_test(test_args)
 		thread_times.append(thread)
 		pthread_times.append(pthread)
 
