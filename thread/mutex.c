@@ -1,10 +1,6 @@
 #include "thread.h"
 #include "debug.h"
 
-struct thread_mutex {
-	int dummy;
-};
-
 int thread_mutex_init(thread_mutex_t *mutex) {
 	error("Creating a mutex: %s", "not implemented")
 

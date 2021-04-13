@@ -50,7 +50,7 @@ extern int thread_join(thread_t thread, void **return_value);
 extern void thread_exit(void *return_value); //TODO: ajouter "__attribute__ ((__noreturn__))" quand cette fonction sera implémentée
 
 /* Interface possible pour les mutex */
-typedef void *thread_mutex_t;
+typedef struct thread_mutex { int dummy; } thread_mutex_t;
 
 int thread_mutex_init(thread_mutex_t *mutex);
 
