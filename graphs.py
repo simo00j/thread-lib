@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 
 test_battery = ["01-main", "02-switch", "11-join", "12-join-main", "21-create-many",
 				"22-create-many-recursive", "23-create-many-once", "31-switch-many",
-				"32-switch-many-join", "33-switch-many-cascade.c", "51-fibonacci"]
+				"32-switch-many-join", "33-switch-many-cascade", "51-fibonacci"]
 args = sys.argv
 
 # Number of iterations per test, with the same parameters, of which the average is taken
