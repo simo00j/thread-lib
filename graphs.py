@@ -39,9 +39,9 @@ def run_test(test_args: string) -> Tuple[float, float]:
 		os.system(dir_pthread_path + test_name + "-pthread" + test_args)
 		t2 = time.clock_gettime(time.CLOCK_MONOTONIC_RAW)
 		pthread_time = t2 - t1
-	pthread_time /= iterations_number
 	thread_time /= iterations_number
-	return pthread_time, thread_time
+	pthread_time /= iterations_number
+	return thread_time, pthread_time
 
 
 def graph_thread():
