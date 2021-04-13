@@ -60,6 +60,29 @@ static void initialize_threads() {
 	debug("%hd is the main thread.", main_thread->id)
 }
 
+__attribute__((unused)) __attribute__((destructor))
+static void free_threads() {
+	printf("\n");
+	info("%s, now freeing all remaining threads…", "Program has exited")
+
+	struct thread *current = TAILQ_FIRST(&threads);
+	struct thread *next;
+
+	while (current != NULL) {
+		next = TAILQ_NEXT(current, entries);
+		free_thread(current);
+		current = next;
+	}
+
+	current = TAILQ_FIRST(&zombies);
+
+	while (current != NULL) {
+		next = TAILQ_NEXT(current, entries);
+		free_thread(current);
+		current = next;
+	}
+}
+
 //endregion
 
 static struct thread *thread_self_safe(void) {
