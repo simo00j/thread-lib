@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 
 test_battery = ["01-main", "02-switch", "11-join", "12-join-main", "21-create-many",
 				"22-create-many-recursive", "23-create-many-once", "31-switch-many",
-				"32-switch-many-join", "33-switch-many-cascade.c", "51-fibonacci"]
+				"32-switch-many-join", "33-switch-many-cascade", "51-fibonacci"]
 args = sys.argv
 
 # Number of iterations per test, with the same parameters, of which the average is taken
@@ -26,7 +26,7 @@ dir_thread_path = args[3] + "/"
 dir_pthread_path = dir_thread_path
 
 
-def run_test(test_id: int, test_args: string) -> Tuple[float, float]:
+def run_test(test_args: string) -> Tuple[float, float]:
 	thread_time = 0
 	pthread_time = 0
 	for j in range(iterations_number):
@@ -39,9 +39,9 @@ def run_test(test_id: int, test_args: string) -> Tuple[float, float]:
 		os.system(dir_pthread_path + test_name + "-pthread" + test_args)
 		t2 = time.clock_gettime(time.CLOCK_MONOTONIC_RAW)
 		pthread_time = t2 - t1
-	pthread_time /= iterations_number
 	thread_time /= iterations_number
-	return pthread_time, thread_time
+	pthread_time /= iterations_number
+	return thread_time, pthread_time
 
 
 def graph_thread():
@@ -49,7 +49,7 @@ def graph_thread():
 	pthread_times = []
 	for i in range(x_val):
 		test_args = " " + str(i) + " 10"
-		thread, pthread = run_test(test_number, test_args)
+		thread, pthread = run_test(test_args)
 		thread_times.append(thread)
 		pthread_times.append(pthread)
 
