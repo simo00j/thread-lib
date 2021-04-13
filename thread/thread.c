@@ -34,10 +34,8 @@ struct thread_queue zombies;
 static void free_thread(struct thread *thread) {
 	debug("%hd is being freed…", thread->id)
 
-	//#ifdef USE_DEBUG
 	if (thread->valgrind_stack != -1)
 		VALGRIND_STACK_DEREGISTER(thread->valgrind_stack);
-	//#endif
 
 	free(thread->stack);
 	free(thread);
