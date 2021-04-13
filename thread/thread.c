@@ -6,6 +6,7 @@
 #include <valgrind/valgrind.h>
 
 #include "debug.h"
+#include <assert.h>
 
 #define STACK_SIZE (64 * 1024)
 
@@ -135,6 +136,7 @@ extern int thread_create(thread_t *new_thread, void *(*func)(void *), void *func
 }
 
 static int thread_is_alone(void) {
+	assert(!TAILQ_EMPTY(&threads));
 	return TAILQ_FIRST(&threads) == TAILQ_LAST(&threads, thread_queue);
 }
 
@@ -145,10 +147,13 @@ extern int thread_yield(void) {
 		return 0;
 	} else {
 		struct thread *current = TAILQ_FIRST(&threads);
+		assert(current);
+
 		TAILQ_REMOVE(&threads, current, entries);
 		TAILQ_INSERT_TAIL(&threads, current, entries);
 
 		struct thread *next = TAILQ_FIRST(&threads);
+		assert(next);
 
 		debug("yield: %hd -> %hd", current->id, next->id)
 		return swapcontext(&current->context, &next->context);
@@ -184,6 +189,7 @@ extern int thread_join(thread_t thread, void **return_value) {
 
 extern void thread_exit(void *return_value) {
 	struct thread *current = TAILQ_FIRST(&threads);
+	assert(current);
 	current->return_value = return_value;
 	TAILQ_REMOVE(&threads, current, entries);
 	TAILQ_INSERT_TAIL(&zombies, current, entries);
