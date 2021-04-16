@@ -20,6 +20,7 @@ static short next_thread_id = 0;
 struct thread {
 	ucontext_t context;
 	void *return_value;
+	//void *stack;
 #ifdef USE_DEBUG
 	short id;
 #endif
@@ -50,15 +51,15 @@ static void initialize_threads() {
 	// Create the main thread (so it can call thread_self and thread_yield)
 	struct thread *main_thread = malloc(sizeof *main_thread);
 	main_thread->return_value = NULL;
-	main_thread->stack = NULL;
+	main_thread->context.uc_stack.ss_sp = NULL;
 	main_thread->is_zombie = 1;
 #ifdef USE_DEBUG
 	main_thread->id = next_thread_id++;
 #endif
 	main_thread->valgrind_stack = -1;
 
-	TAILQ_INSERT_HEAD(&threads, main_thread, entries);
-	debug("%hd is the main thread.", main_thread->id)
+	TAILQ_INSERT_HEAD(&threads, main_thread, entries);debug("%hd is the main thread.",
+	                                                        main_thread->id)
 }
 
 __attribute__((unused)) __attribute__((destructor))
@@ -111,13 +112,18 @@ extern int thread_create(thread_t *new_thread, void *(*func)(void *), void *func
 	}
 
 	new->context.uc_stack.ss_sp = malloc(STACK_SIZE);
-	if(new->context.uc_stack.ss_sp == NULL){
-		error("New thread stack allocation failed: %hd", new->id)
+	if (new->context.uc_stack.ss_sp == NULL) { error("New thread stack allocation failed: %hd",
+	                                                 new->id)
 		exit(1);
 	}
 
 	new->context.uc_stack.ss_size = STACK_SIZE;
-	new->context.uc_stack.ss_sp = new->stack;
+	new->context.uc_stack.ss_sp = malloc(STACK_SIZE);
+	if (new->context.uc_stack.ss_sp == NULL) { error("New thread stack allocation failed: %hd",
+	                                                 new->id);
+		exit(1);
+	}
+
 	new->context.uc_link = NULL;
 	new->is_zombie = 1;
 	makecontext(&new->context, (void (*)(void)) func_and_exit, 2, func, func_arg);
