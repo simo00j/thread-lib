@@ -33,12 +33,12 @@ def run_test(test_args: string) -> Tuple[float, float]:
 		t1 = time.clock_gettime(time.CLOCK_MONOTONIC_RAW)
 		os.system(dir_thread_path + test_name + test_args)
 		t2 = time.clock_gettime(time.CLOCK_MONOTONIC_RAW)
-		thread_time = t2 - t1
+		thread_time += t2 - t1
 
 		t1 = time.clock_gettime(time.CLOCK_MONOTONIC_RAW)
 		os.system(dir_pthread_path + test_name + "-pthread" + test_args)
 		t2 = time.clock_gettime(time.CLOCK_MONOTONIC_RAW)
-		pthread_time = t2 - t1
+		pthread_time += t2 - t1
 	thread_time /= iterations_number
 	pthread_time /= iterations_number
 	return thread_time, pthread_time
