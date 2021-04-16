@@ -29,9 +29,8 @@ struct thread {
 };
 
 TAILQ_HEAD(thread_queue, thread);
-TAILQ_HEAD(zombie_queue, thread);
 struct thread_queue threads;
-struct zombie_queue zombies;
+struct thread_queue zombies;
 
 static void free_thread(struct thread *thread) {
 	debug("%hd is being freed…", thread->id)
