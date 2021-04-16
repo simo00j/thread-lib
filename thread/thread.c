@@ -101,13 +101,6 @@ int thread_create(thread_t *new_thread, void *(*func)(void *), void *func_arg) {
 		exit(1);
 	}
 
-	new->context.uc_stack.ss_sp = malloc(STACK_SIZE);
-	if (new->context.uc_stack.ss_sp == NULL) {
-		error("New thread stack allocation failed: %hd",
-		      new->id)
-		exit(1);
-	}
-
 	new->context.uc_stack.ss_size = STACK_SIZE;
 	new->context.uc_stack.ss_sp = malloc(STACK_SIZE);
 	if (new->context.uc_stack.ss_sp == NULL) {
