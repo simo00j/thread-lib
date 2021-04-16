@@ -24,7 +24,7 @@ struct thread {
 	short id;
 #endif
 	unsigned int valgrind_stack;
-	char is_zombie; //0 = zombie, 1 = active
+	char is_zombie; // 1 = zombie, 0 = active
 	STAILQ_ENTRY(thread) entries;
 };
 
@@ -49,7 +49,7 @@ static void initialize_threads() {
 	struct thread *main_thread = malloc(sizeof *main_thread);
 	main_thread->return_value = NULL;
 	main_thread->context.uc_stack.ss_sp = NULL;
-	main_thread->is_zombie = 1;
+	main_thread->is_zombie = 0;
 #ifdef USE_DEBUG
 	main_thread->id = next_thread_id++;
 #endif
@@ -108,7 +108,7 @@ int thread_create(thread_t *new_thread, void *(*func)(void *), void *func_arg) {
 	}
 
 	new->context.uc_link = NULL;
-	new->is_zombie = 1;
+	new->is_zombie = 0;
 	makecontext(&new->context, (void (*)(void)) func_and_exit, 2, func, func_arg);
 
 	new->return_value = NULL;
@@ -156,7 +156,7 @@ int thread_join(thread_t thread, void **return_value) {
 	info("%hd: Will join %hd", thread_self_safe()->id, target->id)
 
 	while (1) {
-		if (target->is_zombie == 0) {
+		if (target->is_zombie) {
 			debug("%hd: will free %hd", thread_self_safe()->id, target->id)
 			if (return_value != NULL) {
 				*return_value = target->return_value;
@@ -179,7 +179,7 @@ void thread_exit(void *return_value) {
 	assert(current);
 	current->return_value = return_value;
 	STAILQ_REMOVE_HEAD(&threads, entries);
-	current->is_zombie = 0;
+	current->is_zombie = 1;
 	info("%hd has died with return value %p.", current->id, return_value)
 
 	if (STAILQ_EMPTY(&threads)) {
