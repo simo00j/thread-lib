@@ -158,10 +158,8 @@ int thread_join(thread_t thread, void **return_value) {
 	info("%hd: Will join %hd", thread_self_safe()->id, target->id)
 
 	while (1) {
-		// we don't loop in zombies now, just check if the target thread is a zombie (checking his is_zombie)
 		if (target->is_zombie == 0) {
-			debug("%hd: Found zombie %hd…", thread_self_safe()->id,
-			      target->id)
+			debug("%hd: will free %hd", thread_self_safe()->id, target->id)
 			if (return_value != NULL) {
 				*return_value = target->return_value;
 			}
