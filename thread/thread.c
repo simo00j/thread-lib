@@ -29,7 +29,7 @@ struct thread {
 };
 
 TAILQ_HEAD(thread_queue, thread);
-SLIST_HEAD(zombie_list, thread);
+TAILQ_HEAD(zombie_list, thread);
 struct thread_queue threads;
 struct zombie_list zombies;
 
@@ -46,11 +46,13 @@ static void free_thread(struct thread *thread) {
 __attribute__((unused)) __attribute__((constructor))
 static void initialize_threads() {
 	TAILQ_INIT(&threads);
-	SLIST_INIT(&zombies);
+	TAILQ_INIT(&zombies);
 
 	// Create the main thread (so it can call thread_self and thread_yield)
 	struct thread *main_thread = malloc(sizeof *main_thread);
 	main_thread->return_value = NULL;
+	main_thread->stack = NULL;
+	main_thread->is_zombie = 1;
 #ifdef USE_DEBUG
 	main_thread->id = next_thread_id++;
 #endif
@@ -74,7 +76,7 @@ static void free_threads() {
 		current = next;
 	}
 
-	current = SLIST_FIRST(&zombies);
+	current = TAILQ_FIRST(&zombies);
 
 	while (current != NULL) {
 		next = TAILQ_NEXT(current, entries);
@@ -173,7 +175,7 @@ extern int thread_join(thread_t thread, void **return_value) {
 			if (return_value != NULL) {
 				*return_value = target->return_value;
 			}
-			SLIST_REMOVE(&zombies, target, thread, zombie_entrie);
+			TAILQ_REMOVE(&zombies, target, entries);
 			free_thread(target);
 			return 0;
 		}
@@ -192,9 +194,9 @@ extern void thread_exit(void *return_value) {
 	assert(current);
 	current->return_value = return_value;
 	TAILQ_REMOVE(&threads, current, entries);
-	SLIST_INSERT_HEAD(&zombies, current, zombie_entrie);
-	current->status = 0;info("%hd has died with return value %p.",
-	                         current->id, return_value)
+	current->is_zombie = 0;
+	TAILQ_INSERT_TAIL(&zombies, current, entries);info("%hd has died with return value %p.",
+	                                                   current->id, return_value)
 
 	if (TAILQ_EMPTY(&threads)) {
 		info("All threads are dead: %s", "now terminating")
