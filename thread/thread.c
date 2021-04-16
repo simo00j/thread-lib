@@ -30,7 +30,6 @@ struct thread {
 
 TAILQ_HEAD(thread_queue, thread);
 struct thread_queue threads;
-struct thread_queue zombies;
 
 static void free_thread(struct thread *thread) {
 	debug("%hd is being freed…", thread->id)
@@ -45,7 +44,6 @@ static void free_thread(struct thread *thread) {
 __attribute__((unused)) __attribute__((constructor))
 static void initialize_threads() {
 	TAILQ_INIT(&threads);
-	TAILQ_INIT(&zombies);
 
 	// Create the main thread (so it can call thread_self and thread_yield)
 	struct thread *main_thread = malloc(sizeof *main_thread);
@@ -57,8 +55,9 @@ static void initialize_threads() {
 #endif
 	main_thread->valgrind_stack = -1;
 
-	TAILQ_INSERT_HEAD(&threads, main_thread, entries);debug("%hd is the main thread.",
-	                                                        main_thread->id)
+	TAILQ_INSERT_HEAD(&threads, main_thread, entries);
+	debug("%hd is the main thread.",
+	      main_thread->id)
 }
 
 __attribute__((unused)) __attribute__((destructor))
@@ -68,14 +67,6 @@ static void free_threads() {
 
 	struct thread *current = TAILQ_FIRST(&threads);
 	struct thread *next;
-
-	while (current != NULL) {
-		next = TAILQ_NEXT(current, entries);
-		free_thread(current);
-		current = next;
-	}
-
-	current = TAILQ_FIRST(&zombies);
 
 	while (current != NULL) {
 		next = TAILQ_NEXT(current, entries);
@@ -100,26 +91,28 @@ void func_and_exit(void *(*func)(void *), void *func_arg) {
 
 int thread_create(thread_t *new_thread, void *(*func)(void *), void *func_arg) {
 	struct thread *new = malloc(sizeof *new);
-	if(new == NULL){
+	if (new == NULL) {
 		error("New thread allocation %s", "failed")
 		exit(1);
 	}
 
-	if(getcontext(&new->context) == -1){
+	if (getcontext(&new->context) == -1) {
 		error("Failed to get context: %hd", new->id)
 		exit(1);
 	}
 
 	new->context.uc_stack.ss_sp = malloc(STACK_SIZE);
-	if (new->context.uc_stack.ss_sp == NULL) { error("New thread stack allocation failed: %hd",
-	                                                 new->id)
+	if (new->context.uc_stack.ss_sp == NULL) {
+		error("New thread stack allocation failed: %hd",
+		      new->id)
 		exit(1);
 	}
 
 	new->context.uc_stack.ss_size = STACK_SIZE;
 	new->context.uc_stack.ss_sp = malloc(STACK_SIZE);
-	if (new->context.uc_stack.ss_sp == NULL) { error("New thread stack allocation failed: %hd",
-	                                                 new->id);
+	if (new->context.uc_stack.ss_sp == NULL) {
+		error("New thread stack allocation failed: %hd",
+		      new->id);
 		exit(1);
 	}
 
@@ -179,7 +172,6 @@ int thread_join(thread_t thread, void **return_value) {
 			if (return_value != NULL) {
 				*return_value = target->return_value;
 			}
-			TAILQ_REMOVE(&zombies, target, entries);
 			free_thread(target);
 			return 0;
 		}
@@ -199,8 +191,7 @@ void thread_exit(void *return_value) {
 	current->return_value = return_value;
 	TAILQ_REMOVE(&threads, current, entries);
 	current->is_zombie = 0;
-	TAILQ_INSERT_TAIL(&zombies, current, entries);info("%hd has died with return value %p.",
-	                                                   current->id, return_value)
+	info("%hd has died with return value %p.", current->id, return_value)
 
 	if (TAILQ_EMPTY(&threads)) {
 		info("All threads are dead: %s", "now terminating")
@@ -208,7 +199,6 @@ void thread_exit(void *return_value) {
 	}
 
 	struct thread *next = TAILQ_FIRST(&threads);
-	debug("The execution will now move to %hd.",
-	      next->id)
+	debug("The execution will now move to %hd.", next->id)
 	setcontext(&next->context);
 }
