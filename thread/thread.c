@@ -11,7 +11,6 @@
 #define STACK_SIZE (64 * 1024)
 
 #ifdef USE_DEBUG
-
 static short next_thread_id = 0;
 #endif
 
@@ -91,7 +90,7 @@ static struct thread *thread_self_safe(void) {
 	return TAILQ_FIRST(&threads);
 }
 
-extern thread_t thread_self(void) {
+thread_t thread_self(void) {
 	return thread_self_safe();
 }
 
@@ -99,7 +98,7 @@ void func_and_exit(void *(*func)(void *), void *func_arg) {
 	thread_exit(func(func_arg));
 }
 
-extern int thread_create(thread_t *new_thread, void *(*func)(void *), void *func_arg) {
+int thread_create(thread_t *new_thread, void *(*func)(void *), void *func_arg) {
 	struct thread *new = malloc(sizeof *new);
 	if(new == NULL){
 		error("New thread allocation %s", "failed")
@@ -148,7 +147,7 @@ static int thread_is_alone(void) {
 	return TAILQ_FIRST(&threads) == TAILQ_LAST(&threads, thread_queue);
 }
 
-extern int thread_yield(void) {
+int thread_yield(void) {
 	if (thread_is_alone()) {
 		debug("%hd: No thread to yield to, noop.", thread_self_safe()->id)
 		// No thread to yield to: there is only one thread
@@ -168,7 +167,7 @@ extern int thread_yield(void) {
 	}
 }
 
-extern int thread_join(thread_t thread, void **return_value) {
+int thread_join(thread_t thread, void **return_value) {
 	struct thread *target = thread;
 	info("%hd: Will join %hd", thread_self_safe()->id, target->id)
 
@@ -194,7 +193,7 @@ extern int thread_join(thread_t thread, void **return_value) {
 	}
 }
 
-extern void thread_exit(void *return_value) {
+void thread_exit(void *return_value) {
 	struct thread *current = TAILQ_FIRST(&threads);
 	assert(current);
 	current->return_value = return_value;
