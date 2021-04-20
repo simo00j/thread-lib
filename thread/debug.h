@@ -6,7 +6,7 @@
 	#include <stdio.h>
 	#include <stdarg.h>
 
-	#define internal_log(file, level, message, ...) fprintf(file, "[" level "] " message "\n\tin %s:%d, %s\n", __VA_ARGS__, __FILE__, __LINE__, __func__);
+	#define internal_log(file, level, message, ...) fprintf(file, "[" level "]\t" message "\n\tin\t%s:%d, %s\n", __VA_ARGS__, __FILE__, __LINE__, __func__);
 
 #else // USE_DEBUG
 

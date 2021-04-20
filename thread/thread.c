@@ -19,7 +19,6 @@ static short next_thread_id = 0;
 struct thread {
 	ucontext_t context;
 	void *return_value;
-	//void *stack;
 #ifdef USE_DEBUG
 	short id;
 #endif
@@ -32,7 +31,7 @@ STAILQ_HEAD(thread_queue, thread);
 struct thread_queue threads;
 
 static void free_thread(struct thread *thread) {
-	debug("%hd is being freed…", thread->id)
+	debug("%hd is being freed, on address %p", thread->id, (void *) thread)
 
 	if (thread->valgrind_stack != -1)
 		VALGRIND_STACK_DEREGISTER(thread->valgrind_stack);
@@ -119,7 +118,7 @@ int thread_create(thread_t *new_thread, void *(*func)(void *), void *func_arg) {
 	                                              new->context.uc_stack.ss_sp +
 	                                              new->context.uc_stack.ss_size);
 	*new_thread = new;
-	info("%hd was just created.", new->id)
+	info("%hd was just created, on address %p", new->id, (void *) new)
 
 	STAILQ_INSERT_TAIL(&threads, new, entries);
 
