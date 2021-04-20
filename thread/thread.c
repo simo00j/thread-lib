@@ -30,6 +30,8 @@ struct thread {
 STAILQ_HEAD(thread_queue, thread);
 struct thread_queue threads;
 
+struct thread *main_thread, *current_to_free = NULL;
+
 static void free_thread(struct thread *thread) {
 	debug("%hd is being freed, on address %p", thread->id, (void *) thread)
 
@@ -45,7 +47,7 @@ static void initialize_threads() {
 	STAILQ_INIT(&threads);
 
 	// Create the main thread (so it can call thread_self and thread_yield)
-	struct thread *main_thread = malloc(sizeof *main_thread);
+	main_thread = malloc(sizeof *main_thread);
 	main_thread->return_value = NULL;
 	main_thread->context.uc_stack.ss_sp = NULL;
 	main_thread->is_zombie = 0;
@@ -68,9 +70,15 @@ static void free_threads() {
 
 	while (current != NULL) {
 		next = STAILQ_NEXT(current, entries);
-		free_thread(current);
+		if (current != main_thread)
+			free_thread(current);
 		current = next;
 	}
+
+	free_thread(main_thread);
+
+	if (current_to_free != NULL)
+		free_thread(current_to_free);
 }
 
 //endregion
@@ -106,7 +114,7 @@ int thread_create(thread_t *new_thread, void *(*func)(void *), void *func_arg) {
 		exit(1);
 	}
 
-	new->context.uc_link = NULL;
+	new->context.uc_link = &main_thread->context;
 	new->is_zombie = 0;
 	makecontext(&new->context, (void (*)(void)) func_and_exit, 2, func, func_arg);
 
@@ -160,7 +168,12 @@ int thread_join(thread_t thread, void **return_value) {
 			if (return_value != NULL) {
 				*return_value = target->return_value;
 			}
-			free_thread(target);
+
+			if (target != main_thread)
+				free_thread(target);
+			else
+				debug("Detected and cancelled an attempt to free %s.", "the main thread")
+
 			return 0;
 		}
 
@@ -182,11 +195,12 @@ void thread_exit(void *return_value) {
 	info("%hd has died with return value %p.", current->id, return_value)
 
 	if (STAILQ_EMPTY(&threads)) {
-		info("All threads are dead: %s", "now terminating")
-		exit(EXIT_SUCCESS);
+		info("All threads are dead: %s", "forcing termination")
+		current_to_free = current;
+		setcontext(&main_thread->context);
+	} else {
+		struct thread *next = STAILQ_FIRST(&threads);
+		debug("The execution will now move to %hd.", next->id)
+		swapcontext(&current->context, &next->context);
 	}
-
-	struct thread *next = STAILQ_FIRST(&threads);
-	debug("The execution will now move to %hd.", next->id)
-	setcontext(&next->context);
 }
