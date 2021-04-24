@@ -1,5 +1,5 @@
 
-add_library(thread SHARED thread.c mutex.c debug.h)
+add_library(thread SHARED thread.c debug.h)
 install(TARGETS thread DESTINATION lib)
 
 if(CMAKE_BUILD_TYPE MATCHES Debug)

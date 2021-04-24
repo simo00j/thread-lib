@@ -11,6 +11,9 @@
 #define STACK_SIZE (64 * 1024)
 
 #ifdef USE_DEBUG
+
+#include <valgrind/valgrind.h>
+
 static short next_thread_id = 0;
 #endif
 
@@ -19,6 +22,7 @@ static short next_thread_id = 0;
 struct thread {
 	ucontext_t context;
 	void *return_value;
+	void *stack;
 #ifdef USE_DEBUG
 	short id;
 #endif
@@ -206,48 +210,44 @@ void thread_exit(void *return_value) {
 	}
 }
 
-struct thread_mutex {
-	struct thread *locked;
-	STAILQ_HEAD(waiting_queue, thread*) waiting_queue;
-};
-
-extern int thread_mutex_init(thread_mutex_t *mutex) {
+int thread_mutex_init(thread_mutex_t *mutex) {
 	struct thread_mutex *my_mutex = mutex;
 	my_mutex->locked = NULL;
-	STAILQ_INIT(&(my_mutex->waiting_queue));
+	STAILQ_INIT(&my_mutex->waiting_queue);
 	return 0;
 }
 
-extern int thread_mutex_destroy(thread_mutex_t *mutex) {
+int thread_mutex_destroy(thread_mutex_t *mutex) {
 	struct thread_mutex *mymutex = mutex;
-	if (!STAILQ_EMPTY(&(mymutex->waiting_queue))) {
-		perror("Ebusy");
+	if (!STAILQ_EMPTY(&mymutex->waiting_queue)) {
+		thread_mutex_unlock(mutex);
+		perror("Ebusy"); //FIXME: faire planter
 	}
 	return 0;
 }
 
-extern int thread_mutex_lock(thread_mutex_t *mutex) {
+int thread_mutex_lock(thread_mutex_t *mutex) {
 	struct thread_mutex *mymutex = mutex;
 	struct thread *locked = mymutex->locked;
 	do {
 		if (locked == NULL) {
-			locked = TAILQ_FIRST(&threads);
+			locked = thread_self();
 		} else {
-			STAILQ_INSERT_TAIL(&(mymutex->waiting_queue), (struct thread *) thread_self(),
-			                   mutex_entries);
+			STAILQ_INSERT_TAIL(&(mymutex->waiting_queue), thread_self_safe(), mutex_entries);
+			STAILQ_REMOVE(&threads, thread_self_safe(), struct thread *, entries);
 			thread_yield();
 		}
 	} while (mymutex->locked != thread_self());
 	return 0;
 }
 
-extern int thread_mutex_unlock(thread_mutex_t *mutex) {
+int thread_mutex_unlock(thread_mutex_t *mutex) {
 	struct thread_mutex *mymutex = mutex;
 	mymutex->locked = NULL;
-	if (!STAILQ_EMPTY(&(mymutex->waiting_queue))) {
-		struct thread *next_thread = STAILQ_FIRST(&(mymutex->waiting_queue));
-		STAILQ_REMOVE_HEAD(&(mymutex->waiting_queue), mutex_entries);
-		TAILQ_INSERT_TAIL(&threads, next_thread, entries);
+	if (!STAILQ_EMPTY(&mymutex->waiting_queue)) {
+		struct thread *next_thread = STAILQ_FIRST(&mymutex->waiting_queue);
+		STAILQ_REMOVE_HEAD(&mymutex->waiting_queue, mutex_entries);
+		STAILQ_INSERT_TAIL(&threads, next_thread, entries);
 	}
 	return 0;
 }
