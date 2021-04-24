@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include "thread.h"
 #include <valgrind/valgrind.h>
-
+#include <errno.h>
 #include "debug.h"
 #include <assert.h>
 
@@ -25,6 +25,7 @@ struct thread {
 	unsigned int valgrind_stack;
 	char is_zombie; // 1 = zombie, 0 = active
 	STAILQ_ENTRY(thread) entries;
+	STAILQ_ENTRY(thread) mutex_entries;
 };
 
 STAILQ_HEAD(thread_queue, thread);
@@ -203,4 +204,50 @@ void thread_exit(void *return_value) {
 		debug("The execution will now move to %hd.", next->id)
 		swapcontext(&current->context, &next->context);
 	}
+}
+
+struct thread_mutex {
+	struct thread *locked;
+	STAILQ_HEAD(waiting_queue, thread*) waiting_queue;
+};
+
+extern int thread_mutex_init(thread_mutex_t *mutex) {
+	struct thread_mutex *my_mutex = mutex;
+	my_mutex->locked = NULL;
+	STAILQ_INIT(&(my_mutex->waiting_queue));
+	return 0;
+}
+
+extern int thread_mutex_destroy(thread_mutex_t *mutex) {
+	struct thread_mutex *mymutex = mutex;
+	if (!STAILQ_EMPTY(&(mymutex->waiting_queue))) {
+		perror("Ebusy");
+	}
+	return 0;
+}
+
+extern int thread_mutex_lock(thread_mutex_t *mutex) {
+	struct thread_mutex *mymutex = mutex;
+	struct thread *locked = mymutex->locked;
+	do {
+		if (locked == NULL) {
+			locked = TAILQ_FIRST(&threads);
+		} else {
+			STAILQ_INSERT_TAIL(&(mymutex->waiting_queue), (struct thread *) thread_self(),
+			                   mutex_entries);
+			thread_yield();
+		}
+	} while (mymutex->locked != thread_self());
+	return 0;
+}
+
+extern int thread_mutex_unlock(thread_mutex_t *mutex) {
+	struct thread_mutex *mymutex = mutex;
+	mymutex->locked = NULL;
+	if (!STAILQ_EMPTY(&(mymutex->waiting_queue))) {
+		struct thread *next_thread = STAILQ_FIRST(&(mymutex->waiting_queue));
+		STAILQ_REMOVE_HEAD(&(mymutex->waiting_queue), mutex_entries);
+		TAILQ_INSERT_TAIL(&threads, next_thread, entries);
+	}
+	return 0;
 }
