@@ -20,10 +20,12 @@ static short next_thread_id = 0;
 struct thread {
 	ucontext_t context;
 	void *return_value;
+	//void *stack;
 #ifdef USE_DEBUG
 	short id;
 #endif
 	unsigned int valgrind_stack;
+	char is_zombie; //0 = zombie, 1 = active
 	TAILQ_ENTRY(thread) entries;
 };
 
@@ -50,13 +52,14 @@ static void initialize_threads() {
 	struct thread *main_thread = malloc(sizeof *main_thread);
 	main_thread->return_value = NULL;
 	main_thread->context.uc_stack.ss_sp = NULL;
+	main_thread->is_zombie = 1;
 #ifdef USE_DEBUG
 	main_thread->id = next_thread_id++;
 #endif
 	main_thread->valgrind_stack = -1;
 
-	TAILQ_INSERT_HEAD(&threads, main_thread, entries);
-	debug("%hd is the main thread.", main_thread->id)
+	TAILQ_INSERT_HEAD(&threads, main_thread, entries);debug("%hd is the main thread.",
+	                                                        main_thread->id)
 }
 
 __attribute__((unused)) __attribute__((destructor))
@@ -99,22 +102,30 @@ void func_and_exit(void *(*func)(void *), void *func_arg) {
 extern int thread_create(thread_t *new_thread, void *(*func)(void *), void *func_arg) {
 	struct thread *new = malloc(sizeof *new);
 	if(new == NULL){
-		error("New thread allocation %s", "failed");
+		error("New thread allocation %s", "failed")
 		exit(1);
 	}
 
 	if(getcontext(&new->context) == -1){
-		error("Failed to get context: %hd", new->id);
+		error("Failed to get context: %hd", new->id)
 		exit(1);
 	}
 
 	new->context.uc_stack.ss_sp = malloc(STACK_SIZE);
-	if(new->context.uc_stack.ss_sp == NULL){
-		error("New thread stack allocation failed: %hd", new->id);
+	if (new->context.uc_stack.ss_sp == NULL) { error("New thread stack allocation failed: %hd",
+	                                                 new->id)
 		exit(1);
 	}
+
 	new->context.uc_stack.ss_size = STACK_SIZE;
+	new->context.uc_stack.ss_sp = malloc(STACK_SIZE);
+	if (new->context.uc_stack.ss_sp == NULL) { error("New thread stack allocation failed: %hd",
+	                                                 new->id);
+		exit(1);
+	}
+
 	new->context.uc_link = NULL;
+	new->is_zombie = 1;
 	makecontext(&new->context, (void (*)(void)) func_and_exit, 2, func, func_arg);
 
 	new->return_value = NULL;
@@ -162,17 +173,16 @@ extern int thread_join(thread_t thread, void **return_value) {
 	info("%hd: Will join %hd", thread_self_safe()->id, target->id)
 
 	while (1) {
-		struct thread *current_zombie;
-		TAILQ_FOREACH(current_zombie, &zombies, entries) {
+		// we don't loop in zombies now, just check if the target thread is a zombie (checking his is_zombie)
+		if (target->is_zombie == 0) {
 			debug("%hd: Found zombie %hd…", thread_self_safe()->id,
-			      current_zombie->id)
-			if (current_zombie == target) {
-				if (return_value != NULL) // The client wants the return value
-					*return_value = current_zombie->return_value;
-				TAILQ_REMOVE(&zombies, current_zombie, entries);
-				free_thread(current_zombie);
-				return 0;
+			      target->id)
+			if (return_value != NULL) {
+				*return_value = target->return_value;
 			}
+			TAILQ_REMOVE(&zombies, target, entries);
+			free_thread(target);
+			return 0;
 		}
 
 		if (thread_is_alone()) {
@@ -189,9 +199,9 @@ extern void thread_exit(void *return_value) {
 	assert(current);
 	current->return_value = return_value;
 	TAILQ_REMOVE(&threads, current, entries);
-	TAILQ_INSERT_TAIL(&zombies, current, entries);
-	info("%hd has died with return value %p.",
-	     current->id, return_value)
+	current->is_zombie = 0;
+	TAILQ_INSERT_TAIL(&zombies, current, entries);info("%hd has died with return value %p.",
+	                                                   current->id, return_value)
 
 	if (TAILQ_EMPTY(&threads)) {
 		info("All threads are dead: %s", "now terminating")
@@ -199,6 +209,7 @@ extern void thread_exit(void *return_value) {
 	}
 
 	struct thread *next = TAILQ_FIRST(&threads);
-	debug("The execution will now move to %hd.", next->id)
+	debug("The execution will now move to %hd.",
+	      next->id)
 	setcontext(&next->context);
 }
