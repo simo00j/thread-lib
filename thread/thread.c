@@ -228,12 +228,13 @@ int thread_mutex_destroy(thread_mutex_t *mutex) {
 
 int thread_mutex_lock(thread_mutex_t *mutex) {
 	struct thread_mutex *mymutex = mutex;
-	struct thread *locked = mymutex->locked;
 	do {
-		if (locked == NULL) {
-			locked = thread_self();
+		if (mymutex->locked == NULL) {
+			mymutex->locked = thread_self();
 		} else {
-			STAILQ_INSERT_TAIL(&(mymutex->waiting_queue), thread_self_safe(), mutex_entries);
+			STAILQ_INSERT_TAIL(&mymutex->waiting_queue,
+			                   thread_self_safe(),
+			                   mutex_entries);
 			STAILQ_REMOVE(&threads, thread_self_safe(), struct thread *, entries);
 			thread_yield();
 		}
