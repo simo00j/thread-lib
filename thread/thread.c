@@ -227,17 +227,15 @@ void thread_exit(void *return_value) {
 //region Mutex
 
 int thread_mutex_init(thread_mutex_t *mutex) {
-	struct thread_mutex *my_mutex = mutex;
-	my_mutex->owner = NULL;
-	STAILQ_INIT(&my_mutex->waiting_queue);
-	debug("Created mutex %p", (void *) my_mutex)
+	mutex->owner = NULL;
+	STAILQ_INIT(&mutex->waiting_queue);
+	debug("Created mutex %p", (void *) mutex)
 	return 0;
 }
 
 int thread_mutex_destroy(thread_mutex_t *mutex) {
 	debug("Destroying mutex %p", (void *) mutex)
-	struct thread_mutex *mymutex = mutex;
-	if (!STAILQ_EMPTY(&mymutex->waiting_queue)) {
+	if (!STAILQ_EMPTY(&mutex->waiting_queue)) {
 		warn("Attempted to destroy a owner mutex: %p", (void *) mutex)
 		thread_mutex_unlock(mutex);
 		perror("Ebusy"); //FIXME: faire planter
@@ -246,31 +244,29 @@ int thread_mutex_destroy(thread_mutex_t *mutex) {
 }
 
 int thread_mutex_lock(thread_mutex_t *mutex) {
-	struct thread_mutex *mymutex = mutex;
 	do {
-		if (mymutex->owner == NULL) {
+		if (mutex->owner == NULL) {
 			debug("%d: Locking mutex %p", thread_self_safe()->id, (void *) mutex)
-			mymutex->owner = thread_self();
+			mutex->owner = thread_self();
 		} else {
 			struct thread *current = thread_self_safe();
 			debug("%d: Mutex %p is already owner", current->id, (void *) mutex)
 			STAILQ_REMOVE(&threads, current, thread, entries);
-			STAILQ_INSERT_TAIL(&mymutex->waiting_queue,
+			STAILQ_INSERT_TAIL(&mutex->waiting_queue,
 			                   current,
 			                   entries);
 			thread_yield_from(current);
 		}
-	} while (mymutex->owner != thread_self());
+	} while (mutex->owner != thread_self());
 	return 0;
 }
 
 int thread_mutex_unlock(thread_mutex_t *mutex) {
 	debug("%d: Unlocking mutex %p", thread_self_safe()->id, (void *) mutex)
-	struct thread_mutex *mymutex = mutex;
-	mymutex->owner = NULL;
-	if (!STAILQ_EMPTY(&mymutex->waiting_queue)) {
-		struct thread *next_thread = STAILQ_FIRST(&mymutex->waiting_queue);
-		STAILQ_REMOVE_HEAD(&mymutex->waiting_queue, entries);
+	mutex->owner = NULL;
+	if (!STAILQ_EMPTY(&mutex->waiting_queue)) {
+		struct thread *next_thread = STAILQ_FIRST(&mutex->waiting_queue);
+		STAILQ_REMOVE_HEAD(&mutex->waiting_queue, entries);
 		STAILQ_INSERT_TAIL(&threads, next_thread, entries);
 	}
 	return 0;
