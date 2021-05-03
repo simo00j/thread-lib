@@ -52,7 +52,7 @@ extern void thread_exit(void *return_value);
 
 /* Interface possible pour les mutex */
 typedef struct thread_mutex {
-	thread_t locked;
+	thread_t owner;
 	STAILQ_HEAD(waiting_queue, thread) waiting_queue;
 } thread_mutex_t;
 
