@@ -4,16 +4,12 @@
 #include <stdlib.h>
 #include "thread.h"
 #include <valgrind/valgrind.h>
-#include <errno.h>
 #include "debug.h"
 #include <assert.h>
 
 #define STACK_SIZE (64 * 1024)
 
 #ifdef USE_DEBUG
-
-#include <valgrind/valgrind.h>
-
 static short next_thread_id = 0;
 #endif
 
@@ -22,13 +18,22 @@ static short next_thread_id = 0;
 struct thread {
 	ucontext_t context;
 	void *return_value;
-	void *stack;
 #ifdef USE_DEBUG
 	short id;
 #endif
 	unsigned int valgrind_stack;
-	char is_zombie; // 1 = zombie, 0 = active
 	STAILQ_ENTRY(thread) entries;
+
+	/**
+	 * Is this thread a zombie? (= called exit, but hasn't been joined yet)
+	 * 1 = zombie, 0 = active
+	 */
+	char is_zombie;
+
+	/**
+	 * The thread responsible for joining this one.
+	 */
+	struct thread *joiner;
 };
 
 STAILQ_HEAD(thread_queue, thread);
@@ -55,6 +60,7 @@ static void initialize_threads() {
 	main_thread->return_value = NULL;
 	main_thread->context.uc_stack.ss_sp = NULL;
 	main_thread->is_zombie = 0;
+	main_thread->joiner = NULL;
 #ifdef USE_DEBUG
 	main_thread->id = next_thread_id++;
 #endif
@@ -120,6 +126,7 @@ int thread_create(thread_t *new_thread, void *(*func)(void *), void *func_arg) {
 
 	new->context.uc_link = &main_thread->context;
 	new->is_zombie = 0;
+	new->joiner = NULL;
 	makecontext(&new->context, (void (*)(void)) func_and_exit, 2, func, func_arg);
 
 	new->return_value = NULL;
@@ -181,28 +188,39 @@ int thread_join(thread_t thread, void **return_value) {
 	struct thread *target = thread;
 	info("%hd: Will join %hd", thread_self_safe()->id, target->id)
 
-	while (1) {
-		if (target->is_zombie) {
-			debug("%hd: will free %hd", thread_self_safe()->id, target->id)
-			if (return_value != NULL) {
-				*return_value = target->return_value;
-			}
+	if (target->joiner != NULL) {
+		error("%hd: The thread %hd has already been claimed for join by the thread %hd",
+		      thread_self_safe()->id, target->id, target->joiner->id)
+		return -1;
+	}
+	target->joiner = thread_self_safe();
 
-			if (target != main_thread)
-				free_thread(target);
-			else
-				debug("Detected and cancelled an attempt to free %s.", "the main thread")
+	if (!target->is_zombie) { // the target hasn't died yet
+		struct thread *current = thread_self_safe();
+		STAILQ_REMOVE_HEAD(&threads, entries); // I'm not alive anymore
 
-			return 0;
-		}
-
-		if (thread_is_alone()) {
-			error("%hd: Trying to join %hd, yet there is no thread to yield to. This should not happen.",
-			      thread_self_safe()->id, target->id)
+		if (STAILQ_EMPTY(&threads)) {
+			error("%hd: I'm the last thread alive, but I was asked to join %hd, which is not dead. This is impossible.",
+			      current->id, target->id)
 			return -1;
 		}
-		thread_yield();
+
+		// Yield to another thread, the one I'm waiting for will add me back to the live threads
+		thread_yield_from(current);
 	}
+	assert(target->is_zombie);
+
+	debug("%hd: will free %hd", thread_self_safe()->id, target->id)
+	if (return_value != NULL) {
+		*return_value = target->return_value;
+	}
+
+	if (target != main_thread)
+		free_thread(target);
+	else
+		debug("Detected and cancelled an attempt to free %s.", "the main thread")
+
+	return 0;
 }
 
 void thread_exit(void *return_value) {
@@ -211,6 +229,10 @@ void thread_exit(void *return_value) {
 	current->return_value = return_value;
 	STAILQ_REMOVE_HEAD(&threads, entries);
 	current->is_zombie = 1;
+
+	if (current->joiner != NULL)
+		STAILQ_INSERT_TAIL(&threads, current->joiner, entries);
+
 	info("%hd has died with return value %p.", current->id, return_value)
 
 	if (STAILQ_EMPTY(&threads)) {
