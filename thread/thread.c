@@ -148,14 +148,18 @@ static int thread_is_alone(void) {
  * @param current The current thread. Should be at the end of the queue.
  */
 static int thread_yield_from(struct thread *current) {
-	//TODO: possible noop case
 	assert(current);
 
 	struct thread *next = STAILQ_FIRST(&threads);
 	assert(next);
 
-	debug("yield: %hd -> %hd", current->id, next->id)
-	return swapcontext(&current->context, &next->context);
+	if (next == current) {
+		debug("%hd: No thread to yield to, noop.", thread_self_safe()->id)
+		return 0;
+	} else {
+		debug("yield: %hd -> %hd", current->id, next->id)
+		return swapcontext(&current->context, &next->context);
+	}
 }
 
 int thread_yield(void) {
