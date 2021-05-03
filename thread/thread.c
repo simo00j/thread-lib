@@ -29,7 +29,6 @@ struct thread {
 	unsigned int valgrind_stack;
 	char is_zombie; // 1 = zombie, 0 = active
 	STAILQ_ENTRY(thread) entries;
-	STAILQ_ENTRY(thread) mutex_entries;
 };
 
 STAILQ_HEAD(thread_queue, thread);
@@ -255,10 +254,10 @@ int thread_mutex_lock(thread_mutex_t *mutex) {
 		} else {
 			struct thread *current = thread_self_safe();
 			debug("%d: Mutex %p is already owner", current->id, (void *) mutex)
+			STAILQ_REMOVE(&threads, current, thread, entries);
 			STAILQ_INSERT_TAIL(&mymutex->waiting_queue,
 			                   current,
-			                   mutex_entries);
-			STAILQ_REMOVE(&threads, current, thread, entries);
+			                   entries);
 			thread_yield_from(current);
 		}
 	} while (mymutex->owner != thread_self());
@@ -271,7 +270,7 @@ int thread_mutex_unlock(thread_mutex_t *mutex) {
 	mymutex->owner = NULL;
 	if (!STAILQ_EMPTY(&mymutex->waiting_queue)) {
 		struct thread *next_thread = STAILQ_FIRST(&mymutex->waiting_queue);
-		STAILQ_REMOVE_HEAD(&mymutex->waiting_queue, mutex_entries);
+		STAILQ_REMOVE_HEAD(&mymutex->waiting_queue, entries);
 		STAILQ_INSERT_TAIL(&threads, next_thread, entries);
 	}
 	return 0;
