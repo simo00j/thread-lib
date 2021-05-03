@@ -2,6 +2,7 @@
 #define OS_S8_THREAD_H
 
 #ifndef USE_PTHREAD
+
 #include "sys/queue.h"
 /**
  * Thread identifier.
@@ -47,11 +48,11 @@ extern int thread_join(thread_t thread, void **return_value);
  * This function never returns.
  * @param return_value The return value captured by thread_join
  */
-extern void thread_exit(void *return_value); //TODO: ajouter "__attribute__ ((__noreturn__))" quand cette fonction sera implémentée
+extern void thread_exit(void *return_value);
 
 /* Interface possible pour les mutex */
-typedef struct  thread_mutex{
-    thread_t locked;
+typedef struct thread_mutex {
+	thread_t locked;
 	STAILQ_HEAD(waiting_queue, thread) waiting_queue;
 } thread_mutex_t;
 
