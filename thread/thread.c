@@ -248,6 +248,8 @@ int thread_mutex_lock(thread_mutex_t *mutex) {
 		if (mutex->owner == NULL) {
 			debug("%d: Locking mutex %p", thread_self_safe()->id, (void *) mutex)
 			mutex->owner = thread_self();
+		} else if (mutex->owner == thread_self_safe()) {
+			// Nothing to do, I'm already the owner
 		} else {
 			struct thread *current = thread_self_safe();
 			debug("%d: Mutex %p is already owner", current->id, (void *) mutex)
@@ -263,11 +265,13 @@ int thread_mutex_lock(thread_mutex_t *mutex) {
 
 int thread_mutex_unlock(thread_mutex_t *mutex) {
 	debug("%d: Unlocking mutex %p", thread_self_safe()->id, (void *) mutex)
-	mutex->owner = NULL;
 	if (!STAILQ_EMPTY(&mutex->waiting_queue)) {
 		struct thread *next_thread = STAILQ_FIRST(&mutex->waiting_queue);
 		STAILQ_REMOVE_HEAD(&mutex->waiting_queue, entries);
 		STAILQ_INSERT_TAIL(&threads, next_thread, entries);
+		mutex->owner = next_thread;
+	} else {
+		mutex->owner = NULL;
 	}
 	return 0;
 }
