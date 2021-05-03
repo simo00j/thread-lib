@@ -200,7 +200,7 @@ int thread_join(thread_t thread, void **return_value) {
 		if (thread_is_alone()) {
 			error("%hd: Trying to join %hd, yet there is no thread to yield to. This should not happen.",
 			      thread_self_safe()->id, target->id)
-			exit(1);
+			return -1;
 		}
 		thread_yield();
 	}
