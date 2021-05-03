@@ -27,8 +27,18 @@ struct thread {
 	short id;
 #endif
 	unsigned int valgrind_stack;
-	char is_zombie; // 1 = zombie, 0 = active
 	STAILQ_ENTRY(thread) entries;
+
+	/**
+	 * Is this thread a zombie? (= called exit, but hasn't been joined yet)
+	 * 1 = zombie, 0 = active
+	 */
+	char is_zombie;
+
+	/**
+	 * The thread responsible for joining this one.
+	 */
+	struct thread *joiner;
 };
 
 STAILQ_HEAD(thread_queue, thread);
@@ -55,6 +65,7 @@ static void initialize_threads() {
 	main_thread->return_value = NULL;
 	main_thread->context.uc_stack.ss_sp = NULL;
 	main_thread->is_zombie = 0;
+	main_thread->joiner = NULL;
 #ifdef USE_DEBUG
 	main_thread->id = next_thread_id++;
 #endif
@@ -120,6 +131,7 @@ int thread_create(thread_t *new_thread, void *(*func)(void *), void *func_arg) {
 
 	new->context.uc_link = &main_thread->context;
 	new->is_zombie = 0;
+	new->joiner = NULL;
 	makecontext(&new->context, (void (*)(void)) func_and_exit, 2, func, func_arg);
 
 	new->return_value = NULL;
