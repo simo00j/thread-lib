@@ -4,16 +4,12 @@
 #include <stdlib.h>
 #include "thread.h"
 #include <valgrind/valgrind.h>
-#include <errno.h>
 #include "debug.h"
 #include <assert.h>
 
 #define STACK_SIZE (64 * 1024)
 
 #ifdef USE_DEBUG
-
-#include <valgrind/valgrind.h>
-
 static short next_thread_id = 0;
 #endif
 
@@ -22,7 +18,6 @@ static short next_thread_id = 0;
 struct thread {
 	ucontext_t context;
 	void *return_value;
-	void *stack;
 #ifdef USE_DEBUG
 	short id;
 #endif
