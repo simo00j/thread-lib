@@ -11,8 +11,8 @@ set(files
     32-switch-many-join.c
     33-switch-many-cascade.c
     51-fibonacci.c
-    # 61-mutex.c
-    # 62-mutex.c
+    61-mutex.c
+    62-mutex.c
     )
 
 foreach (file ${files})

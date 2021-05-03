@@ -4,13 +4,16 @@
 #include <stdlib.h>
 #include "thread.h"
 #include <valgrind/valgrind.h>
-
+#include <errno.h>
 #include "debug.h"
 #include <assert.h>
 
 #define STACK_SIZE (64 * 1024)
 
 #ifdef USE_DEBUG
+
+#include <valgrind/valgrind.h>
+
 static short next_thread_id = 0;
 #endif
 
@@ -19,6 +22,7 @@ static short next_thread_id = 0;
 struct thread {
 	ucontext_t context;
 	void *return_value;
+	void *stack;
 #ifdef USE_DEBUG
 	short id;
 #endif
@@ -138,6 +142,25 @@ static int thread_is_alone(void) {
 	return STAILQ_NEXT(STAILQ_FIRST(&threads), entries) == NULL;
 }
 
+/**
+ * Yield to another thread, from current.
+ * @param current The current thread. Should be at the end of the queue.
+ */
+static int thread_yield_from(struct thread *current) {
+	assert(current);
+
+	struct thread *next = STAILQ_FIRST(&threads);
+	assert(next);
+
+	if (next == current) {
+		debug("%hd: No thread to yield to, noop.", thread_self_safe()->id)
+		return 0;
+	} else {
+		debug("yield: %hd -> %hd", current->id, next->id)
+		return swapcontext(&current->context, &next->context);
+	}
+}
+
 int thread_yield(void) {
 	if (thread_is_alone()) {
 		debug("%hd: No thread to yield to, noop.", thread_self_safe()->id)
@@ -150,11 +173,7 @@ int thread_yield(void) {
 		STAILQ_REMOVE_HEAD(&threads, entries);
 		STAILQ_INSERT_TAIL(&threads, current, entries);
 
-		struct thread *next = STAILQ_FIRST(&threads);
-		assert(next);
-
-		debug("yield: %hd -> %hd", current->id, next->id)
-		return swapcontext(&current->context, &next->context);
+		return thread_yield_from(current);
 	}
 }
 
@@ -180,7 +199,7 @@ int thread_join(thread_t thread, void **return_value) {
 		if (thread_is_alone()) {
 			error("%hd: Trying to join %hd, yet there is no thread to yield to. This should not happen.",
 			      thread_self_safe()->id, target->id)
-			exit(1);
+			return -1;
 		}
 		thread_yield();
 	}
@@ -204,3 +223,57 @@ void thread_exit(void *return_value) {
 		swapcontext(&current->context, &next->context);
 	}
 }
+
+//region Mutex
+
+int thread_mutex_init(thread_mutex_t *mutex) {
+	mutex->owner = NULL;
+	STAILQ_INIT(&mutex->waiting_queue);
+	debug("Created mutex %p", (void *) mutex)
+	return 0;
+}
+
+int thread_mutex_destroy(thread_mutex_t *mutex) {
+	debug("Destroying mutex %p", (void *) mutex)
+	if (!STAILQ_EMPTY(&mutex->waiting_queue)) {
+		warn("Attempted to destroy a owner mutex: %p", (void *) mutex)
+		thread_mutex_unlock(mutex);
+		perror("Ebusy"); //FIXME: faire planter
+	}
+	return 0;
+}
+
+int thread_mutex_lock(thread_mutex_t *mutex) {
+	do {
+		if (mutex->owner == NULL) {
+			debug("%d: Locking mutex %p", thread_self_safe()->id, (void *) mutex)
+			mutex->owner = thread_self();
+		} else if (mutex->owner == thread_self_safe()) {
+			// Nothing to do, I'm already the owner
+		} else {
+			struct thread *current = thread_self_safe();
+			debug("%d: Mutex %p is already owner", current->id, (void *) mutex)
+			STAILQ_REMOVE(&threads, current, thread, entries);
+			STAILQ_INSERT_TAIL(&mutex->waiting_queue,
+			                   current,
+			                   entries);
+			thread_yield_from(current);
+		}
+	} while (mutex->owner != thread_self());
+	return 0;
+}
+
+int thread_mutex_unlock(thread_mutex_t *mutex) {
+	debug("%d: Unlocking mutex %p", thread_self_safe()->id, (void *) mutex)
+	if (!STAILQ_EMPTY(&mutex->waiting_queue)) {
+		struct thread *next_thread = STAILQ_FIRST(&mutex->waiting_queue);
+		STAILQ_REMOVE_HEAD(&mutex->waiting_queue, entries);
+		STAILQ_INSERT_TAIL(&threads, next_thread, entries);
+		mutex->owner = next_thread;
+	} else {
+		mutex->owner = NULL;
+	}
+	return 0;
+}
+
+//endregion

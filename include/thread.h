@@ -3,6 +3,7 @@
 
 #ifndef USE_PTHREAD
 
+#include "sys/queue.h"
 /**
  * Thread identifier.
  */
@@ -47,10 +48,13 @@ extern int thread_join(thread_t thread, void **return_value);
  * This function never returns.
  * @param return_value The return value captured by thread_join
  */
-extern void thread_exit(void *return_value); //TODO: ajouter "__attribute__ ((__noreturn__))" quand cette fonction sera implémentée
+extern void thread_exit(void *return_value);
 
 /* Interface possible pour les mutex */
-typedef struct thread_mutex { int dummy; } thread_mutex_t;
+typedef struct thread_mutex {
+	thread_t owner;
+	STAILQ_HEAD(waiting_queue, thread) waiting_queue;
+} thread_mutex_t;
 
 int thread_mutex_init(thread_mutex_t *mutex);
 
