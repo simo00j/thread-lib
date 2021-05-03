@@ -210,16 +210,21 @@ void thread_exit(void *return_value) {
 	}
 }
 
+//region Mutex
+
 int thread_mutex_init(thread_mutex_t *mutex) {
 	struct thread_mutex *my_mutex = mutex;
 	my_mutex->locked = NULL;
 	STAILQ_INIT(&my_mutex->waiting_queue);
+	debug("Created mutex %p", (void *) my_mutex)
 	return 0;
 }
 
 int thread_mutex_destroy(thread_mutex_t *mutex) {
+	debug("Destroying mutex %p", (void *) mutex)
 	struct thread_mutex *mymutex = mutex;
 	if (!STAILQ_EMPTY(&mymutex->waiting_queue)) {
+		warn("Attempted to destroy a locked mutex: %p", (void *) mutex)
 		thread_mutex_unlock(mutex);
 		perror("Ebusy"); //FIXME: faire planter
 	}
@@ -230,8 +235,10 @@ int thread_mutex_lock(thread_mutex_t *mutex) {
 	struct thread_mutex *mymutex = mutex;
 	do {
 		if (mymutex->locked == NULL) {
+			debug("%d: Locking mutex %p", thread_self_safe()->id, (void *) mutex)
 			mymutex->locked = thread_self();
 		} else {
+			debug("%d: Mutex %p is already locked", thread_self_safe()->id, (void *) mutex)
 			STAILQ_INSERT_TAIL(&mymutex->waiting_queue,
 			                   thread_self_safe(),
 			                   mutex_entries);
@@ -243,6 +250,7 @@ int thread_mutex_lock(thread_mutex_t *mutex) {
 }
 
 int thread_mutex_unlock(thread_mutex_t *mutex) {
+	debug("%d: Unlocking mutex %p", thread_self_safe()->id, (void *) mutex)
 	struct thread_mutex *mymutex = mutex;
 	mymutex->locked = NULL;
 	if (!STAILQ_EMPTY(&mymutex->waiting_queue)) {
@@ -252,3 +260,5 @@ int thread_mutex_unlock(thread_mutex_t *mutex) {
 	}
 	return 0;
 }
+
+//endregion
