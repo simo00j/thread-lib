@@ -143,6 +143,21 @@ static int thread_is_alone(void) {
 	return STAILQ_NEXT(STAILQ_FIRST(&threads), entries) == NULL;
 }
 
+/**
+ * Yield to another thread, from current.
+ * @param current The current thread. Should be at the end of the queue.
+ */
+static int thread_yield_from(struct thread *current) {
+	//TODO: possible noop case
+	assert(current);
+
+	struct thread *next = STAILQ_FIRST(&threads);
+	assert(next);
+
+	debug("yield: %hd -> %hd", current->id, next->id)
+	return swapcontext(&current->context, &next->context);
+}
+
 int thread_yield(void) {
 	if (thread_is_alone()) {
 		debug("%hd: No thread to yield to, noop.", thread_self_safe()->id)
@@ -155,11 +170,7 @@ int thread_yield(void) {
 		STAILQ_REMOVE_HEAD(&threads, entries);
 		STAILQ_INSERT_TAIL(&threads, current, entries);
 
-		struct thread *next = STAILQ_FIRST(&threads);
-		assert(next);
-
-		debug("yield: %hd -> %hd", current->id, next->id)
-		return swapcontext(&current->context, &next->context);
+		return thread_yield_from(current);
 	}
 }
 
@@ -238,12 +249,13 @@ int thread_mutex_lock(thread_mutex_t *mutex) {
 			debug("%d: Locking mutex %p", thread_self_safe()->id, (void *) mutex)
 			mymutex->locked = thread_self();
 		} else {
-			debug("%d: Mutex %p is already locked", thread_self_safe()->id, (void *) mutex)
+			struct thread *current = thread_self_safe();
+			debug("%d: Mutex %p is already locked", current->id, (void *) mutex)
 			STAILQ_INSERT_TAIL(&mymutex->waiting_queue,
-			                   thread_self_safe(),
+			                   current,
 			                   mutex_entries);
-			STAILQ_REMOVE(&threads, thread_self_safe(), thread, entries);
-			thread_yield();
+			STAILQ_REMOVE(&threads, current, thread, entries);
+			thread_yield_from(current);
 		}
 	} while (mymutex->locked != thread_self());
 	return 0;
