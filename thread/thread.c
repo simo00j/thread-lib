@@ -2,10 +2,12 @@
 #include <ucontext.h>
 #include <sys/queue.h>
 #include <stdlib.h>
-#include "thread.h"
 #include <valgrind/valgrind.h>
-#include "debug.h"
+#include <signal.h>
+#include <limits.h>
 #include <assert.h>
+#include "thread.h"
+#include "debug.h"
 
 #define STACK_SIZE (64 * 1024)
 
@@ -15,6 +17,11 @@ static short next_thread_id = 0;
 
 //region Structure declaration
 
+struct sig {
+	char received; // 1 = yes, 0 = non
+	sighandler_t handler;
+};
+
 struct thread {
 	ucontext_t context;
 	void *return_value;
@@ -23,6 +30,7 @@ struct thread {
 #endif
 	unsigned int valgrind_stack;
 	STAILQ_ENTRY(thread) entries;
+	struct sig *sig_handler_table;
 
 	/**
 	 * Is this thread a zombie? (= called exit, but hasn't been joined yet)
@@ -41,12 +49,57 @@ struct thread_queue threads;
 
 struct thread *main_thread, *current_to_free = NULL;
 
+
+void signal_create(struct thread * thread){
+	thread->sig_handler_table = calloc(_POSIX_SIGQUEUE_MAX, sizeof(struct sig));
+	if (thread->sig_handler_table == NULL) {
+		error("New signal table allocation failed: %hd", thread->id);
+		exit(1);
+	}
+	for(int i = 0; i < _POSIX_SIGQUEUE_MAX; i++){
+		thread->sig_handler_table[i].handler = SIG_DFL;
+	}
+}
+
+void free_signal(struct thread * thread){
+	free(thread->sig_handler_table);
+}
+
+void check_signals(struct thread* thread){
+	for(int i = 0; i < _POSIX_SIGQUEUE_MAX; i++){
+		if(thread->sig_handler_table[i].received){
+			thread->sig_handler_table[i].received = 0;
+			thread->sig_handler_table[i].handler(i);
+		}
+	}
+}
+
+sighandler_t thread_signal(int signum, sighandler_t handler){
+	struct thread *current = STAILQ_FIRST(&threads);
+	assert(current);
+
+	sighandler_t old_handler = current->sig_handler_table[signum].handler;
+	current->sig_handler_table[signum].handler = handler;
+	return old_handler;
+}
+
+int thread_kill(thread_t thread, int signum){
+	if(signum < 1 || signum > _POSIX_SIGQUEUE_MAX){
+		return -1;
+	}
+	struct thread *target = thread;
+	target->sig_handler_table[signum].received = 1;
+	return 0;
+}
+
+
 static void free_thread(struct thread *thread) {
 	debug("%hd is being freed, on address %p", thread->id, (void *) thread)
 
 	if (thread->valgrind_stack != -1)
 		VALGRIND_STACK_DEREGISTER(thread->valgrind_stack);
 
+	free_signal(thread);
 	free(thread->context.uc_stack.ss_sp);
 	free(thread);
 }
@@ -64,6 +117,7 @@ static void initialize_threads() {
 #ifdef USE_DEBUG
 	main_thread->id = next_thread_id++;
 #endif
+	signal_create(main_thread);
 	main_thread->valgrind_stack = -1;
 
 	STAILQ_INSERT_HEAD(&threads, main_thread, entries);
@@ -133,6 +187,9 @@ int thread_create(thread_t *new_thread, void *(*func)(void *), void *func_arg) {
 #ifdef USE_DEBUG
 	new->id = next_thread_id++;
 #endif
+
+	signal_create(new);
+
 	new->valgrind_stack = VALGRIND_STACK_REGISTER(new->context.uc_stack.ss_sp,
 	                                              new->context.uc_stack.ss_sp +
 	                                              new->context.uc_stack.ss_size);
@@ -164,7 +221,9 @@ static int thread_yield_from(struct thread *current) {
 		return 0;
 	} else {
 		debug("yield: %hd -> %hd", current->id, next->id)
-		return swapcontext(&current->context, &next->context);
+		int swap_ret_value = swapcontext(&current->context, &next->context);
+		check_signals(next);
+		return swap_ret_value;
 	}
 }
 
