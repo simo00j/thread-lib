@@ -92,6 +92,7 @@ test-advanced:
     matrix:
       - INSTALL: [ install, install-release ]
         TEST: [ 71-preemption, 81-deadlock ]
+  allow_failure: true
 
 # Send the changelog to the Telegram group
 telegram:
