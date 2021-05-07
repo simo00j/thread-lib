@@ -83,7 +83,6 @@ test-mutex:
       - TEST: [ 61-mutex, 62-mutex ]
   script:
     - LD_LIBRARY_PATH="$LD_LIBRARY_PATH:install/lib" valgrind install/bin/$TEST --leak-check=full --show-reachable=yes --track-origins=yes
-  allow_failure: true
 
 # Send the changelog to the Telegram group
 telegram:
