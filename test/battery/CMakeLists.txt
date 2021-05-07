@@ -14,6 +14,8 @@ set(files
     51-fibonacci.c
     61-mutex.c
     62-mutex.c
+    71-preemption.c
+    81-deadlock.c
     )
 
 foreach (file ${files})

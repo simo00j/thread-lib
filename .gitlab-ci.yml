@@ -82,6 +82,12 @@ test-mutex:
     matrix:
       - TEST: [ 61-mutex, 62-mutex ]
 
+test-advanced:
+  extends: .test
+  parallel:
+    matrix:
+      - TEST: [ 71-preemption, 81-deadlock ]
+
 # Send the changelog to the Telegram group
 telegram:
   stage: deploy
