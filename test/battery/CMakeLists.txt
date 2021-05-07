@@ -2,6 +2,7 @@
 set(files
     01-main.c
     02-switch.c
+    03-equity.c
     11-join.c
     12-join-main.c
     21-create-many.c
