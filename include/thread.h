@@ -64,11 +64,19 @@ int thread_mutex_lock(thread_mutex_t *mutex);
 
 int thread_mutex_unlock(thread_mutex_t *mutex);
 
+/* Interface des signaux */
+typedef void (*sighandler_t)(int);
+
+sighandler_t thread_signal(int signum, sighandler_t handler);
+
+int thread_kill(thread_t thread, int signum);
+
 #else /* USE_PTHREAD */
 
 /* Si on compile avec -DUSE_PTHREAD, ce sont les pthreads qui sont utilisés */
 #include <sched.h>
 #include <pthread.h>
+#include "signal.h"
 #define thread_t pthread_t
 #define thread_self pthread_self
 #define thread_create(th, func, arg) pthread_create(th, NULL, func, arg)
@@ -82,6 +90,9 @@ int thread_mutex_unlock(thread_mutex_t *mutex);
 #define thread_mutex_destroy      pthread_mutex_destroy
 #define thread_mutex_lock         pthread_mutex_lock
 #define thread_mutex_unlock       pthread_mutex_unlock
+
+#define thread_signal	signal
+#define thread_kill		pthread_kill
 
 #endif /* USE_PTHREAD */
 

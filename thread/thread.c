@@ -53,7 +53,7 @@ struct thread_queue threads;
 struct thread *main_thread, *current_to_free = NULL;
 
 
-void signal_create(struct thread * thread){
+void signal_create(struct thread *thread){
 	thread->sig_handler_table = calloc(_POSIX_SIGQUEUE_MAX, sizeof(struct sig));
 	if (thread->sig_handler_table == NULL) {
 		error("New signal table allocation failed: %hd", thread->id);
@@ -64,14 +64,15 @@ void signal_create(struct thread * thread){
 	}
 }
 
-void free_signal(struct thread * thread){
+void free_signal(struct thread *thread){
 	free(thread->sig_handler_table);
 }
 
-void check_signals(struct thread* thread){
+void check_signals(struct thread *thread){
 	for(int i = 0; i < _POSIX_SIGQUEUE_MAX; i++){
 		if(thread->sig_handler_table[i].received){
 			thread->sig_handler_table[i].received = 0;
+			//créer context, executer puis revenir ?
 			thread->sig_handler_table[i].handler(i);
 		}
 	}

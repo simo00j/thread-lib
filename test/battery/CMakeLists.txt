@@ -16,6 +16,7 @@ set(files
     62-mutex.c
     71-preemption.c
     81-deadlock.c
+	signal_test.c
     )
 
 foreach (file ${files})
