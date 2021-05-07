@@ -22,11 +22,11 @@ static void *thfunc(void *_nb) {
 		thread_t th;
 		int err;
 		void *res;
-		err = thread_create(&th, thfunc, _nb - 1);
+		err = thread_create(&th, thfunc, ((char *) _nb) - 1);
 		assert(!err);
 		err = thread_join(th, &res);
 		assert(!err);
-		assert(res == _nb - 1);
+		assert(res == ((char *) _nb - 1));
 	}
 	return _nb;
 }

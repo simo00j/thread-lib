@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <stdlib.h>
 #include <sys/time.h>
 #include "thread.h"
 
@@ -46,7 +47,7 @@ unsigned long fibo_checker(unsigned long n) {
 	unsigned long b = 1;
 	unsigned long c, i;
 
-	if (n < 2) {
+	if (n <= 2) {
 		return 1;
 	}
 

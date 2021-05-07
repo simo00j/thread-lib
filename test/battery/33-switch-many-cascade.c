@@ -27,7 +27,7 @@ static void *thfunc(void *_nbth) {
 		thread_t th;
 		int err;
 		void *res;
-		err = thread_create(&th, thfunc, _nbth - 1);
+		err = thread_create(&th, thfunc, ((char *) _nbth) - 1);
 		assert(!err);
 
 		for (i = 0; i < (nbyield * nbth); i++) {
@@ -36,7 +36,7 @@ static void *thfunc(void *_nbth) {
 
 		err = thread_join(th, &res);
 		assert(!err);
-		assert(res == _nbth - 1);
+		assert(res == ((char *) _nbth) - 1);
 	} else {
 		for (i = 0; i < (nbyield * nbthread); i++) {
 			thread_yield();
