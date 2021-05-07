@@ -30,6 +30,9 @@ struct thread {
 #endif
 	unsigned int valgrind_stack;
 	STAILQ_ENTRY(thread) entries;
+	/*
+	 * Array of signals handler
+	 */
 	struct sig *sig_handler_table;
 
 	/**
@@ -222,7 +225,7 @@ static int thread_yield_from(struct thread *current) {
 	} else {
 		debug("yield: %hd -> %hd", current->id, next->id)
 		int swap_ret_value = swapcontext(&current->context, &next->context);
-		check_signals(next);
+		check_signals(thread_self_safe());
 		return swap_ret_value;
 	}
 }
