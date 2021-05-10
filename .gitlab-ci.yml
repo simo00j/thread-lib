@@ -38,7 +38,7 @@ docker:
       - /tmp/$USER-*
 
 # Generate the test binaries
-build:
+build-debug:
   stage: build
   extends: .make
   script:
@@ -49,40 +49,50 @@ build:
     paths:
       - install/
 
-build release:
+build-release:
   stage: build
   extends: .make
   script:
     - mkdir cmake-build-release
     - cmake -B cmake-build-release -DCMAKE_BUILD_TYPE=Release
     - make -s -C cmake-build-release -j install
+    - mv install install-release
   artifacts:
     paths:
-      - install/
+      - install-release/
+
+.test:
+  stage: test
+  extends: .make
+  dependencies:
+    - build-debug
+    - build-release
+  script:
+    - LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$INSTALL/lib" valgrind $INSTALL/bin/$TEST --leak-check=full --show-reachable=yes --track-origins=yes
 
 # Run thread tests
 test-thread:
-  stage: test
-  extends: .make
-  dependencies:
-    - build
+  extends: .test
   parallel:
     matrix:
-      - TEST: [ 01-main, 02-switch, 11-join, 12-join-main, 21-create-many, 22-create-many-recursive, 23-create-many-once, 31-switch-many, 32-switch-many-join, 33-switch-many-cascade, 51-fibonacci ]
-  script:
-    - LD_LIBRARY_PATH="$LD_LIBRARY_PATH:install/lib" valgrind install/bin/$TEST --leak-check=full --show-reachable=yes --track-origins=yes
+      - INSTALL: [ install, install-release ]
+        TEST: [ 01-main, 02-switch, 03-equity, 11-join, 12-join-main, 21-create-many, 22-create-many-recursive, 23-create-many-once, 31-switch-many, 32-switch-many-join, 33-switch-many-cascade, 51-fibonacci ]
 
 # Run thread tests
 test-mutex:
-  stage: test
-  extends: .make
-  dependencies:
-    - build
+  extends: .test
   parallel:
     matrix:
-      - TEST: [ 61-mutex, 62-mutex ]
-  script:
-    - LD_LIBRARY_PATH="$LD_LIBRARY_PATH:install/lib" valgrind install/bin/$TEST --leak-check=full --show-reachable=yes --track-origins=yes
+      - INSTALL: [ install, install-release ]
+        TEST: [ 61-mutex, 62-mutex ]
+
+test-advanced:
+  extends: .test
+  parallel:
+    matrix:
+      - INSTALL: [ install, install-release ]
+        TEST: [ 71-preemption, 81-deadlock ]
+  allow_failure: true
 
 # Send the changelog to the Telegram group
 telegram:

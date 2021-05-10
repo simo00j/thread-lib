@@ -24,11 +24,11 @@ static void *thfunc(void *_nbth) {
 		thread_t th;
 		int err;
 		void *res;
-		err = thread_create(&th, thfunc, _nbth - 1);
+		err = thread_create(&th, thfunc, ((char *) _nbth) - 1);
 		assert(!err);
 		err = thread_join(th, &res);
 		assert(!err);
-		assert(res == _nbth - 1);
+		assert(res == ((char *) _nbth) - 1);
 	} else {
 		int i;
 		struct timeval tv1, tv2;
