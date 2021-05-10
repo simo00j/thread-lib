@@ -76,7 +76,8 @@ int thread_kill(thread_t thread, int signum);
 /* Si on compile avec -DUSE_PTHREAD, ce sont les pthreads qui sont utilisés */
 #include <sched.h>
 #include <pthread.h>
-#include "signal.h"
+#include <signal.h>
+
 #define thread_t pthread_t
 #define thread_self pthread_self
 #define thread_create(th, func, arg) pthread_create(th, NULL, func, arg)
