@@ -33,7 +33,7 @@ struct thread {
 	/*
 	 * Array of signals handler
 	 */
-	struct sig *sig_handler_table;
+	struct sig sig_handler_table[_POSIX_SIGQUEUE_MAX];
 
 	/**
 	 * Is this thread a zombie? (= called exit, but hasn't been joined yet)
@@ -53,11 +53,6 @@ struct thread_queue threads;
 struct thread *main_thread, *current_to_free = NULL;
 
 int signal_init(struct thread *thread) {
-	thread->sig_handler_table = calloc(_POSIX_SIGQUEUE_MAX, sizeof(struct sig));
-	if (thread->sig_handler_table == NULL) {
-		error("New signal table allocation failed: %hd", thread->id);
-		return 1;
-	}
 	for (int i = 0; i < _POSIX_SIGQUEUE_MAX; i++) {
 		thread->sig_handler_table[i].handler = SIG_DFL;
 	}
@@ -70,7 +65,6 @@ static void free_thread(struct thread *thread) {
 	if (thread->valgrind_stack != -1)
 		VALGRIND_STACK_DEREGISTER(thread->valgrind_stack);
 
-	free(thread->sig_handler_table);
 	free(thread->context.uc_stack.ss_sp);
 	free(thread);
 }
