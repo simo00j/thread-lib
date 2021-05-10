@@ -202,6 +202,8 @@ int thread_join(thread_t thread, void **return_value) {
 		if (STAILQ_EMPTY(&threads)) {
 			error("%hd: I'm the last thread alive, but I was asked to join %hd, which is not dead. This is impossible.",
 			      current->id, target->id)
+			STAILQ_INSERT_HEAD(&threads, current, entries);
+			target->joiner = NULL;
 			return -1;
 		}
 
@@ -225,10 +227,7 @@ int thread_join(thread_t thread, void **return_value) {
 
 void thread_exit(void *return_value) {
 	struct thread *current = STAILQ_FIRST(&threads);
-	if (!current) {
-		fprintf(stderr, "Detected a deadlock. Exiting now.");
-		exit(EXIT_FAILURE);
-	}
+	assert(current);
 
 	current->return_value = return_value;
 	STAILQ_REMOVE_HEAD(&threads, entries);
