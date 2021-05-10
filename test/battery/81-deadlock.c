@@ -30,6 +30,10 @@ static void *thfunc1(void *dummy __attribute__((unused))) {
 }
 
 int main() {
+#ifdef USE_PTHREAD
+	return 0;
+#endif
+
 	void *res;
 	int err;
 
