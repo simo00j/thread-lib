@@ -49,63 +49,20 @@ struct thread {
 
 STAILQ_HEAD(thread_queue, thread);
 struct thread_queue threads;
-static struct thread *thread_self_safe(void);
+
 struct thread *main_thread, *current_to_free = NULL;
 
-
-void signal_create(struct thread *thread){
+int signal_init(struct thread *thread) {
 	thread->sig_handler_table = calloc(_POSIX_SIGQUEUE_MAX, sizeof(struct sig));
 	if (thread->sig_handler_table == NULL) {
 		error("New signal table allocation failed: %hd", thread->id);
-		exit(1);
+		return 1;
 	}
-	for(int i = 0; i < _POSIX_SIGQUEUE_MAX; i++){
+	for (int i = 0; i < _POSIX_SIGQUEUE_MAX; i++) {
 		thread->sig_handler_table[i].handler = SIG_DFL;
 	}
-}
-
-void free_signal(struct thread *thread){
-	free(thread->sig_handler_table);
-}
-
-void check_signals(struct thread *thread){
-	for(int i = 0; i < _POSIX_SIGQUEUE_MAX; i++){
-		if(thread->sig_handler_table[i].received){
-			thread->sig_handler_table[i].received = 0;
-			ucontext_t *signal_context = malloc(sizeof(ucontext_t));
-			signal_context->uc_stack.ss_size = STACK_SIZE;
-			signal_context->uc_stack.ss_sp = malloc(STACK_SIZE);
-			if (signal_context->uc_stack.ss_sp == NULL) {
-				error("New thread stack allocation failed: %hd", new->id);
-				exit(1);
-			}
-			signal_context->uc_link = &thread_self_safe()->context;
-			makecontext(signal_context, thread->sig_handler_table[i].handler,0);
-			swapcontext(&thread_self_safe()->context, signal_context);
-			free(signal_context->uc_stack.ss_sp);
-			free(signal_context);
-		}
-	}
-}
-
-sighandler_t thread_signal(int signum, sighandler_t handler){
-	struct thread *current = STAILQ_FIRST(&threads);
-	assert(current);
-
-	sighandler_t old_handler = current->sig_handler_table[signum].handler;
-	current->sig_handler_table[signum].handler = handler;
-	return old_handler;
-}
-
-int thread_kill(thread_t thread, int signum){
-	if(signum < 1 || signum > _POSIX_SIGQUEUE_MAX){
-		return -1;
-	}
-	struct thread *target = thread;
-	target->sig_handler_table[signum].received = 1;
 	return 0;
 }
-
 
 static void free_thread(struct thread *thread) {
 	debug("%hd is being freed, on address %p", thread->id, (void *) thread)
@@ -113,7 +70,7 @@ static void free_thread(struct thread *thread) {
 	if (thread->valgrind_stack != -1)
 		VALGRIND_STACK_DEREGISTER(thread->valgrind_stack);
 
-	free_signal(thread);
+	free(thread->sig_handler_table);
 	free(thread->context.uc_stack.ss_sp);
 	free(thread);
 }
@@ -131,7 +88,7 @@ static void initialize_threads() {
 #ifdef USE_DEBUG
 	main_thread->id = next_thread_id++;
 #endif
-	signal_create(main_thread);
+	signal_init(main_thread);
 	main_thread->valgrind_stack = -1;
 
 	STAILQ_INSERT_HEAD(&threads, main_thread, entries);
@@ -202,7 +159,7 @@ int thread_create(thread_t *new_thread, void *(*func)(void *), void *func_arg) {
 	new->id = next_thread_id++;
 #endif
 
-	signal_create(new);
+	assert(signal_init(new) == 0);
 
 	new->valgrind_stack = VALGRIND_STACK_REGISTER(new->context.uc_stack.ss_sp,
 	                                              new->context.uc_stack.ss_sp +
@@ -220,6 +177,35 @@ static int thread_is_alone(void) {
 	return STAILQ_NEXT(STAILQ_FIRST(&threads), entries) == NULL;
 }
 
+static int check_signals(struct thread *thread) {
+	for (int i = 0; i < _POSIX_SIGQUEUE_MAX; i++) {
+		if (thread->sig_handler_table[i].received) {
+			thread->sig_handler_table[i].received = 0;
+
+			if (thread->sig_handler_table[i].handler == NULL) {
+				warn("%d: Received signal %d, but I don't have a handler for it.",
+				     thread_self_safe()->id, i)
+				continue;
+			}
+
+			ucontext_t *signal_context = malloc(sizeof *signal_context);
+			getcontext(signal_context);
+			signal_context->uc_stack.ss_size = STACK_SIZE;
+			signal_context->uc_stack.ss_sp = malloc(STACK_SIZE);
+			if (signal_context->uc_stack.ss_sp == NULL) {
+				error("%d: New thread stack allocation failed.", thread_self_safe()->id)
+				return 2;
+			}
+			signal_context->uc_link = &thread_self_safe()->context;
+			makecontext(signal_context, thread->sig_handler_table[i].handler, 0);
+			swapcontext(&thread_self_safe()->context, signal_context);
+			free(signal_context->uc_stack.ss_sp);
+			free(signal_context);
+		}
+	}
+	return 0;
+}
+
 /**
  * Yield to another thread, from current.
  * @param current The current thread. Should be at the end of the queue.
@@ -235,9 +221,9 @@ static int thread_yield_from(struct thread *current) {
 		return 0;
 	} else {
 		debug("yield: %hd -> %hd", current->id, next->id)
-		int swap_ret_value = swapcontext(&current->context, &next->context);
-		check_signals(thread_self_safe());
-		return swap_ret_value;
+		int swap_value_ret = swapcontext(&current->context, &next->context);
+		int signals_ret = check_signals(thread_self_safe());
+		return swap_value_ret + signals_ret;
 	}
 }
 
@@ -371,6 +357,31 @@ int thread_mutex_unlock(thread_mutex_t *mutex) {
 	} else {
 		mutex->owner = NULL;
 	}
+	return 0;
+}
+
+//endregion
+//region Signals
+
+sighandler_t thread_signal(int signum, sighandler_t handler) {
+	debug("%d: Registering handler for signal %d.", thread_self_safe()->id, signum)
+
+	struct thread *current = thread_self_safe();
+	assert(current);
+
+	sighandler_t old_handler = current->sig_handler_table[signum].handler;
+	current->sig_handler_table[signum].handler = handler;
+	return old_handler;
+}
+
+int thread_kill(thread_t thread, int signum) {
+	if (signum < 1 || signum > _POSIX_SIGQUEUE_MAX) {
+		return -1;
+	}
+
+	struct thread *target = thread;
+	debug("%d: Sending signal %d to thread %d", thread_self_safe()->id, signum, target->id)
+	target->sig_handler_table[signum].received = 1;
 	return 0;
 }
 
