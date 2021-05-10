@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <assert.h>
+#include <stdlib.h>
 #include "thread.h"
 
 /* test de detection d'un deadlock lors d'un cycle de thread qui joignent tous le suivant.
@@ -30,6 +31,10 @@ static void *thfunc1(void *dummy __attribute__((unused))) {
 }
 
 int main() {
+#ifdef USE_PTHREAD
+	return 0;
+#endif
+
 	void *res;
 	int err;
 
@@ -42,6 +47,10 @@ int main() {
 	totalerr += err;
 	printf("somme des valeurs de retour = %d\n", totalerr);
 	assert(totalerr == -1);
-	thread_exit(NULL);
-	return 0;
+
+	if (totalerr == -1) {
+		return EXIT_SUCCESS;
+	} else {
+		return EXIT_FAILURE;
+	}
 }
