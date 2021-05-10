@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <signal.h>
+#include <unistd.h>
 #include "thread.h"
 
 #define TESTED_SIGNAL SIGUSR1
@@ -27,9 +28,12 @@ int main() {
 	void *res = NULL;
 
 	err = thread_create(&th, thfunc, NULL);
-	thread_yield();
 	assert(!err);
 
+#ifdef USE_PTHREAD
+	// pthread needs to send the signal *after* the receiver registers it
+	sleep(1);
+#endif
 	thread_kill(th, TESTED_SIGNAL);
 	thread_join(th, &res);
 
