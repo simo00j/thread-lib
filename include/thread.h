@@ -65,7 +65,7 @@ int thread_mutex_lock(thread_mutex_t *mutex);
 int thread_mutex_unlock(thread_mutex_t *mutex);
 
 /* Interface des signaux */
-typedef void (*sighandler_t)(int);
+typedef void (*sighandler_t)();
 
 sighandler_t thread_signal(int signum, sighandler_t handler);
 

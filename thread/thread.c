@@ -49,7 +49,7 @@ struct thread {
 
 STAILQ_HEAD(thread_queue, thread);
 struct thread_queue threads;
-
+static struct thread *thread_self_safe(void);
 struct thread *main_thread, *current_to_free = NULL;
 
 
@@ -72,8 +72,18 @@ void check_signals(struct thread *thread){
 	for(int i = 0; i < _POSIX_SIGQUEUE_MAX; i++){
 		if(thread->sig_handler_table[i].received){
 			thread->sig_handler_table[i].received = 0;
-			//créer context, executer puis revenir ?
-			thread->sig_handler_table[i].handler(i);
+			ucontext_t *signal_context = malloc(sizeof(ucontext_t));
+			signal_context->uc_stack.ss_size = STACK_SIZE;
+			signal_context->uc_stack.ss_sp = malloc(STACK_SIZE);
+			if (signal_context->uc_stack.ss_sp == NULL) {
+				error("New thread stack allocation failed: %hd", new->id);
+				exit(1);
+			}
+			signal_context->uc_link = &thread_self_safe()->context;
+			makecontext(signal_context, thread->sig_handler_table[i].handler,0);
+			swapcontext(&thread_self_safe()->context, signal_context);
+			free(signal_context->uc_stack.ss_sp);
+			free(signal_context);
 		}
 	}
 }
