@@ -32,12 +32,26 @@ make -s -C cmake-build-debug -j <targets>
 # Release mode:
 make -s -C cmake-build-release -j <targets>
 ```
+
 The available targets are:
 
 - `all` to compile everything
 - `install` to add the tests to `install/bin`
 - `test` to execute all tests (with both our implementation and GNU's `pthread`), doesn't compile automatically
 - `graphs` to generate a graph of performance for a specific test (to select the test, use the environment variables `test_id=<integer>` and `test_runs=<integer>`, see [graphs.py](graphs.py) for the test IDs)
+
+##### Projet versions
+
+The `master` branch has:
+
+- All the basic functions
+- Mutexes
+- Deadlock detection
+
+The `signals` branch has:
+
+- Everything in `master`
+- An implementation of signals (not merged in `master` because of memory leaks)
 
 ##### Code conventions
 
