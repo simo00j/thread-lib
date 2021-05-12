@@ -10,7 +10,7 @@ from typing import Tuple
 test_battery = ["01-main", "02-switch", "03-equity", "11-join", "12-join-main", "21-create-many",
                 "22-create-many-recursive", "23-create-many-once", "31-switch-many",
                 "32-switch-many-join", "33-switch-many-cascade", "51-fibonacci", "61-mutex",
-                "62-mutex", "71-preemption", "81-deadlock", "signal-test"]
+                "62-mutex", "71-preemption", "81-deadlock"]
 args = sys.argv
 
 # Number of iterations per test, with the same parameters, of which the average is taken

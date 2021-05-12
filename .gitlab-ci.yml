@@ -76,7 +76,7 @@ test-thread:
   parallel:
     matrix:
       - INSTALL: [ install, install-release ]
-        TEST: [ 01-main, 02-switch, 03-equity, 11-join, 12-join-main, 21-create-many, 22-create-many-recursive, 23-create-many-once, 31-switch-many, 32-switch-many-join, 33-switch-many-cascade, 51-fibonacci, signal-test ]
+        TEST: [ 01-main, 02-switch, 03-equity, 11-join, 12-join-main, 21-create-many, 22-create-many-recursive, 23-create-many-once, 31-switch-many, 32-switch-many-join, 33-switch-many-cascade, 51-fibonacci ]
 
 # Run thread tests
 test-mutex:
